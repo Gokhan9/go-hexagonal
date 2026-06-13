@@ -15,7 +15,7 @@ type CreateWalletRequest struct {
 type WalletResponse struct {
 	ID        string    `json:"id"`
 	Owner     string    `json:"owner"`
-	Balance   float64   `json:"balance"`
+	Balance   float64   `json:"balance"` // UI için 10.50 olarak gösteriyoruz
 	Currency  string    `json:"currency"`
 	CreatedAt time.Time `json":created_at"`
 }
@@ -25,7 +25,7 @@ func ToDomainResponse(w *domain.Wallet) WalletResponse {
 	return WalletResponse{
 		ID:        w.ID,
 		Owner:     w.Owner,
-		Balance:   w.Balance,
+		Balance:   float64(w.Balance) / 100, // Kuruşu TL'ye çevirip dönüyoruz
 		Currency:  w.Currency,
 		CreatedAt: w.CreatedAt,
 	}
