@@ -7,6 +7,14 @@ import (
 	"sync"
 )
 
+/*
+  Kodun Açıklaması:
+   * Thread-Safety: sync.RWMutex kullanarak haritanın (map) eşzamanlı (concurrent) okuma ve yazma işlemlerinde bozulmasını engelleriz.
+   * Port Uyumluluğu: internal/core/ports/wallet_ports.go içinde tanımladığımız WalletRepository interface'indeki tüm metodları (Create, GetByID, Update) somutlaştırırız.
+   * Veri Saklama: Veriler uygulama çalıştığı sürece bir map içinde tutulur; uygulama kapandığında veriler silinir. Bu, geliştirme aşamasında hızlı prototipleme sağlar.
+
+*/
+
 // "MemoryWalletRepository", WalletRepository interface'ini memory üzerinden implement eder.
 type MemoryWalletRepository struct {
 	wallets map[string]*domain.Wallet
@@ -59,11 +67,3 @@ func (r *MemoryWalletRepository) Update(ctx context.Context, wallet *domain.Wall
 	r.wallets[wallet.ID] = wallet
 	return nil
 }
-
-/*
-  Kodun Açıklaması:
-   * Thread-Safety: sync.RWMutex kullanarak haritanın (map) eşzamanlı (concurrent) okuma ve yazma işlemlerinde bozulmasını engelleriz.
-   * Port Uyumluluğu: internal/core/ports/wallet_ports.go içinde tanımladığımız WalletRepository interface'indeki tüm metodları (Create, GetByID, Update) somutlaştırırız.
-   * Veri Saklama: Veriler uygulama çalıştığı sürece bir map içinde tutulur; uygulama kapandığında veriler silinir. Bu, geliştirme aşamasında hızlı prototipleme sağlar.
-
-*/
