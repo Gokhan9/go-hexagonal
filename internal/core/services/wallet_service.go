@@ -39,14 +39,14 @@ func (s *walletService) GetWallet(ctx context.Context, id string) (*domain.Walle
 	return s.repo.GetByID(ctx, id)
 }
 
-func (s *walletService) Deposit(ctx context.Context, walletID string, amont int64) error {
+func (s *walletService) Deposit(ctx context.Context, walletID string, amount int64) error {
 	wallet, err := s.repo.GetByID(ctx, walletID)
 	if err != nil {
 		return err
 	}
 
 	// İş modelini domain modeli üzerindeki metodla işletmek.
-	if err := wallet.Deposit(amont); err != nil {
+	if err := wallet.Deposit(amount); err != nil {
 		return err
 	}
 
