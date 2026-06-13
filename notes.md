@@ -1,4 +1,22 @@
-internal/adapters/handler/wallet_handler.go
+PORTS:
+
+1 - Driver/Primary(Birincil) PORT ve Driven/Secondary(İkincil) PORT olmak üzere 2 adet Port'u kullanıyoruz. 
+- Driver/Primary(Birincil) PORT: Handler(service) ile ilgili işlemler yapmak istiyorsak sahip olduğumuz Handler'lar bu interface'i implement edecekler.(WalletService)
+- Driven/Secondary(İkincil) PORT: Application'un veriyi nasıl saklayacağını bilir. Ayrıca DB(postgres,redis vb..) bu interface'i implement eder.(WalletRepository)
+
+ADAPTERS: 
+
+2 - Portları harici bileşenlerle bağlayan parça adaptördür. İki tür adaptör vardır.
+- Driver Adapter / Primary Adapter: Business logic işlemini gerçekleştirmek için "PORT" interface'ini kullanır..
+- Driven Adapter / Secondary Adapter: Uygulama, dış bileşenlerle(databaseler(postgre,mongo), dış servisler(Ödeme servisleri(iyzico)), API'ler(hava durumu API'si), Mesajlaşma sistemi(rabbitmq, kafka), e-posta,bildirim sistemleri(SMTP, Firebase Cloud Message), Harici SaaS Sistemleri(CRM,ERP)) iletişim kurmak için bunu kullanır. İş mantığının isteğini, dış teknoloji bileşenlerinin isteklerine dönüştürür.
+
+
+
+
+
+
+
+nternal/adapters/handler/wallet_handler.go
 
 /*
 
@@ -28,14 +46,4 @@ json":"created_at" not compatible with reflect.StructTag.Get: bad syntax for str
 */
 
 
-PORTS:
 
-1 - Driver/Primary(Birincil) PORT ve Driven/Secondary(İkincil) PORT olmak üzere 2 adet Port'u kullanıyoruz. 
-- Driver/Primary(Birincil) PORT: Handler(service) ile ilgili işlemler yapmak istiyorsak sahip olduğumuz Handler'lar bu interface'i implement edecekler.(WalletService)
-- Driven/Secondary(İkincil) PORT: Application'un veriyi nasıl saklayacağını bilir. Ayrıca DB(postgres,redis vb..) bu interface'i implement eder.(WalletRepository)
-
-ADAPTERS: 
-
-2 - Portları harici bileşenlerle bağlayan parça adaptördür. İki tür adaptör vardır.
-- Driver Adapter / Primary Adapter: Business logic işlemini gerçekleştirmek için "PORT" interface'ini kullanır..
-- Driven Adapter / Secondary Adapter: Uygulama, dış bileşenlerle(databaseler(postgre,mongo), dış servisler(Ödeme servisleri(iyzico)), API'ler(hava durumu API'si), Mesajlaşma sistemi(rabbitmq, kafka), e-posta,bildirim sistemleri(SMTP, Firebase Cloud Message), Harici SaaS Sistemleri(CRM,ERP)) iletişim kurmak için bunu kullanır. İş mantığının isteğini, dış teknoloji bileşenlerinin isteklerine dönüştürür.
