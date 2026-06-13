@@ -1,6 +1,6 @@
 # Go Hexagonal Wallet Service
 
-![Domain Driven Hexagon Architecture](./assets/DomainDrivenHexagon.png)
+![Domain Driven Hexagon Architecture](assets/DomainDrivenHexagon.png)
 
 Bu proje, Go dilinde **Hexagonal Architecture (Ports and Adapters)** prensipleri kullanılarak geliştirilmiş modern bir cüzdan (wallet) servisidir.
 
