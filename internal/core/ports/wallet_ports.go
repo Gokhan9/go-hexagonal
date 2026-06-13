@@ -17,3 +17,9 @@ type WalletRepository interface {
 // WalletService - Driving Port (Birincil Liman)
 // Uygulamanın sunduğu iş yeteneklerinin kontratıdır.
 // Handler'lar (HTTP API) bu interface'i çağıracak.
+type WalletService interface {
+	CreateWallet(ctx context.Context, owner, currency string) (*domain.Wallet, error)
+	GetWallet(ctx context.Context, id string) (*domain.Wallet, error)
+	Deposit(ctx context.Context, walletID string, amount int64) error
+	Withdraw(ctx context.Context, walletID string, amount int64) error
+}

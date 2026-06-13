@@ -1,34 +1,41 @@
 package domain
 
 import (
+	"errors"
 	"time"
 )
 
+// Uygulama genelinde aşağıdaki hata tanımlarını kullanacağız..
 var (
-	ErrorInsufficientFunds = error.New("insufficient funds in wallet..")
-	ErrorInvalidAmount     = error.New("amount must be greater than zero..")
+	ErrorInsufficientFunds = errors.New("insufficient funds in wallet..")
+	ErrorInvalidAmount     = errors.New("amount must be greater than zero..")
 )
 
 type Wallet struct {
-	ID        string    `json:"id"`
-	Owner     string    `json:"owner"`
-	Balance   float64   `json:"balance"`
-	Currency  string    `json:"currency"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string
+	Owner     string
+	Balance   int64
+	Currency  string
+	CreatedAt time.Time
 }
 
-// new wallet örneği(factory func)
-func NewWallet(id, owner, currency string) *Wallet {
-	return &Wallet{
-		ID:        id,
-		Owner:     owner,
-		Balance:   0,
-		Currency:  currency,
-		CreatedAt: time.Now(),
+// bakiyeye ekleme yapar
+func (w *Wallet) Deposit(amount int64) error {
+	if amount <= 0 {
+		return ErrorInvalidAmount
 	}
+	w.Balance += amount
+	return nil
 }
 
-// bakiyenin çekim için yeterli mi değil mi kontrolü
-func (w *Wallet) CanWithdraw(amount float64) bool {
-	return w.Balance >= amount
+// bakiyeden düşer.
+func (w *Wallet) Withdraw(amount int64) error {
+	if amount <= 0 {
+		return ErrorInvalidAmount
+	}
+	if w.Balance < amount {
+		return ErrorInsufficientFunds
+	}
+	w.Balance -= amount
+	return nil
 }
