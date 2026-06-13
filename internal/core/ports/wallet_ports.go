@@ -5,7 +5,7 @@ import (
 	"go-hexagonal/internal/core/domain"
 )
 
-// WalletRepository-Driven Port(İkincil)
+// ?WalletRepository-Driven Port(İkincil)
 // APP'in veriyi nasıl saklayacağının kontratı
 // DB(postgres,redis vb..) bu interface'i implement eder.
 type WalletRepository interface {
@@ -14,7 +14,7 @@ type WalletRepository interface {
 	Update(ctx context.Context, wallet *domain.Wallet) error
 }
 
-// WalletService - Driving Port (Birincil Liman)
+// ?WalletService - Driving Port (Birincil Liman)
 // Uygulamanın sunduğu iş yeteneklerinin kontratıdır.
 // Handler'lar (HTTP API) bu interface'i çağıracak.
 type WalletService interface {

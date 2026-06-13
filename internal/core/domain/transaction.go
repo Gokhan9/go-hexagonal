@@ -2,6 +2,9 @@ package domain
 
 import "time"
 
+/*
+*	Transaction yapısı cüzdan (wallet) içindeki para hareketlerini KAYIT altına almak için yazılır.
+ */
 type TransactionType string
 
 // sabitler(enums)

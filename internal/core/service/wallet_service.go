@@ -40,6 +40,7 @@ func (s *walletService) GetWallet(ctx context.Context, id string) (*domain.Walle
 }
 
 func (s *walletService) Deposit(ctx context.Context, walletID string, amount int64) error {
+
 	wallet, err := s.repo.GetByID(ctx, walletID)
 	if err != nil {
 		return err
@@ -54,6 +55,7 @@ func (s *walletService) Deposit(ctx context.Context, walletID string, amount int
 }
 
 func (s *walletService) Withdraw(ctx context.Context, walletID string, amount int64) error {
+
 	wallet, err := s.repo.GetByID(ctx, walletID)
 	if err != nil {
 		return err
