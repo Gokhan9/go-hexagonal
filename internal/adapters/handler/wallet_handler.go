@@ -30,7 +30,7 @@ type WalletHandler struct {
 	service ports.WalletService
 }
 
-func NewWalletHandler(service ports.WalletService) ports.WalletHandler {
+func NewWalletHandler(service ports.WalletService) *WalletHandler {
 	return &WalletHandler{
 		service: service,
 	}
@@ -59,6 +59,7 @@ func (h *WalletHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *WalletHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id") // * "Path" parametre okuma.
+
 	if id == "" {
 		h.WriteError(w, http.StatusBadRequest, "Wallet ID required.")
 		return
