@@ -39,6 +39,7 @@ func (s *walletService) GetWallet(ctx context.Context, id string) (*domain.Walle
 	return s.repo.GetByID(ctx, id)
 }
 
+/*
 func (s *walletService) Deposit(ctx context.Context, walletID string, amount int64) error {
 
 	if amount <= 0 {
@@ -56,12 +57,40 @@ func (s *walletService) Deposit(ctx context.Context, walletID string, amount int
 	}
 
 	return s.repo.Update(ctx, wallet)
+}*/
+
+func (s *walletService) Deposit(ctx context.Context, walletID string, amount int64) error {
+
+	if amount <= 0 {
+		return domain.ErrorInvalidAmount // Guard Clause
+	}
+
+	// Başarılı olana kadar sonsuz döngü (veya maksimum deneme sınırı koyulabilir)
+	for {
+		wallet, err := s.repo.GetByID(ctx, walletID)
+		if err != nil {
+			return err
+		}
+
+		if err := wallet.Deposit(amount); err != nil {
+			return err
+		}
+
+		err = s.repo.Update(ctx, wallet)
+		if err == nil {
+			// Eğer hata almadıysak başarıyla güncellenmiştir, döngüden çıkabiliriz
+			return nil
+		}
+
+		// Eğer eşzamanlılık hatası aldıysak döngü başa döner,
+		// güncel cüzdanı (ve yeni versiyonunu) tekrar çekip yeniden dener.
+	}
 }
 
 func (s *walletService) Withdraw(ctx context.Context, walletID string, amount int64) error {
 
 	if amount <= 0 {
-		return domain.ErrorInsufficientFunds // <-- Guard Clause
+		return domain.ErrorInvalidAmount // Guard Clause
 	}
 
 	wallet, err := s.repo.GetByID(ctx, walletID)
