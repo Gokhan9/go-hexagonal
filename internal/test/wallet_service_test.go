@@ -5,6 +5,7 @@ import (
 	"go-hexagonal/internal/adapters/repository"
 	"go-hexagonal/internal/core/domain"
 	services "go-hexagonal/internal/core/service"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -214,4 +215,40 @@ func TestWalletService_Withdraw_InvalidAmount(t *testing.T) {
 		err,
 		domain.ErrorInvalidAmount,
 	)
+}
+
+/*
+Eşzamanlılık(Concurrency) hatasını yakalamak ve kodun doğruluğunu kanıtlamak için Race Condition Testi yazıyoruz. Aynı anda 100 adet goroutine ile cüzdana para yatırabiliriz.
+*/
+
+func TestWalletService_Concurrent_Deposit(t *testing.T) {
+
+	repo := repository.NewMemoryWalletRepository()
+	service := services.NewWalletService(repo)
+	ctx := context.Background()
+
+	wallet, _ := service.CreateWallet(ctx, "Gökhan", "TRY")
+
+	const goroutineCount = 100
+	const depositAmount = 10 // Her defasında 10 birim yatır..
+
+	var wg sync.WaitGroup
+	wg.Add(goroutineCount) // Beklenecek goroutine sayısı(100).
+
+	for i := 0; i < goroutineCount; i++ {
+		go func() {
+			defer wg.Done() // goroutine işini tamamladığında sayaçtan "1" eksilir. Function başına yazılır hata payını düşürmek için..
+			_ = service.Deposit(ctx, wallet.ID, depositAmount)
+		}()
+	}
+
+	wg.Wait() // Sayaç 0 olana kadar diğer işlemleri bloklarız, 0 olduğunda program kaldığı yerden devam edebilir.
+
+	updated, _ := repo.GetByID(ctx, wallet.ID) // Güncel bakiye kontrolü
+
+	assert.Equal(
+		t,
+		int64(goroutineCount*depositAmount),
+		updated.Balance)
+
 }
