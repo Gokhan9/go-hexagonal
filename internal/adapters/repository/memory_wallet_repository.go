@@ -18,7 +18,7 @@ import (
 // "MemoryWalletRepository", WalletRepository interface'ini memory üzerinden implement eder.
 type MemoryWalletRepository struct {
 	wallets map[string]*domain.Wallet
-	mu      sync.RWMutex
+	mu      sync.RWMutex // <-- Her cüzdan işlemi için okuma/yazma güvenliği sağlayacak kilit
 }
 
 // "NewMemoryWalletRepository", yeni bir memory deposu create eder.
@@ -44,7 +44,7 @@ func (r *MemoryWalletRepository) Create(ctx context.Context, wallet *domain.Wall
 
 // GetByID'ye göre cüzdanı getir
 func (r *MemoryWalletRepository) GetByID(ctx context.Context, id string) (*domain.Wallet, error) {
-	r.mu.RLock()
+	r.mu.RLock() // <-- Okuma(Read) Kilidi (Aynı anda birden fazla kişi güvenle okuyabilir)
 	defer r.mu.RUnlock()
 
 	wallet, exists := r.wallets[id]
@@ -52,12 +52,16 @@ func (r *MemoryWalletRepository) GetByID(ctx context.Context, id string) (*domai
 		return nil, errors.New("wallet not found..")
 	}
 
-	return wallet, nil
+	//? Go'da pointer döndüğümiz için, dışarıda yer alan katmanların(servis) map'te ki orijinal veriyi kilit dışındayken manipüle etmemesi için nesnenin kopyasını (deep copy) dönmeliyiz.
+	clonedWallet := *wallet
+	return &clonedWallet, nil
+
+	// return wallet, nil
 }
 
 // Update ile mevcut olan wallet'i günceller..
 func (r *MemoryWalletRepository) Update(ctx context.Context, wallet *domain.Wallet) error {
-	r.mu.Lock()
+	r.mu.Lock() // <-- Yazma(Write) Kilidi (Aynı anda sadece TEK BİR "goroutine" güncelleyebilir)
 	defer r.mu.Unlock()
 
 	if _, exists := r.wallets[wallet.ID]; !exists {
