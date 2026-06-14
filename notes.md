@@ -33,4 +33,28 @@ para birimi(Currency)) parametreleriyle çağır. Dönen sonuçları "wallet ve 
 
 
 
+test/wallet_service_test.go
+
+→ repo := repository.NewMemoryWalletRepository() → Bellek içi(In-Memory) repo oluşturmak. DB bağımlılığı yok. "Postgre,Mongo" gibi db araçlarını kullanmayız.. Yerine "MemoryWalletRepository".
+- Veriler ram'de tutulur.
+
+→ service := services.NewWalletService(repo) → Service
+→ ctx := context.Background() → boş context.
+
+→ require.NoError(t, err) → Hata olması durumunda testi durdurur.
+
+if err != nil {
+    t.FailNow()
+}
+
+→ require.ErrorIs(t, err, domain.ErrorInsufficientFunds) → "Error mu yoksa Wrap edilmiş mi onu kontrol eder"
+- Error'un "WRAP" edilmiş olup olmaması, hatanın başka bir yapı(wrapper) içinde sarılıp/sarılmadığını anlatır.
+Not: "require.ErrorIs", error zincirini gezer ve wrapped errorları kontrol eder. İçeride tanımladığımız "ERROR" var mı yok mu onu kontrol eder.
+
+🔥 Örnek
+
+Domain error: var ErrorInsufficientFunds = errors.New("insufficient funds")
+
+
+
 
