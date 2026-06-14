@@ -19,7 +19,6 @@ func TestWalletService_Deposit(t *testing.T) {
 
 	repo := repository.NewMemoryWalletRepository()
 	service := services.NewWalletService(repo)
-
 	ctx := context.Background()
 
 	// ? New Wallet Creating..
@@ -61,7 +60,6 @@ func TestWalletService_Withdraw_Success(t *testing.T) {
 
 	repo := repository.NewMemoryWalletRepository()
 	service := services.NewWalletService(repo)
-
 	ctx := context.Background()
 
 	// ? Cüzdan oluştur.
@@ -104,7 +102,6 @@ func TestWalletService_Withdraw_InsufficientFunds(t *testing.T) {
 
 	repo := repository.NewMemoryWalletRepository()
 	service := services.NewWalletService(repo)
-
 	ctx := context.Background()
 
 	wallet, _ := service.CreateWallet(
@@ -120,6 +117,83 @@ func TestWalletService_Withdraw_InsufficientFunds(t *testing.T) {
 	)
 
 	require.ErrorIs(
+		t,
+		err,
+		domain.ErrorInsufficientFunds,
+	)
+}
+
+func TestWalletService_Deposit_InvalidAmount(t *testing.T) {
+
+	repo := repository.NewMemoryWalletRepository()
+	service := services.NewWalletService(repo)
+	ctx := context.Background()
+
+	wallet, _ := service.CreateWallet(
+		ctx,
+		"Gökhan",
+		"TRY",
+	)
+
+	// "0" yatırma işlemi..
+	err := service.Deposit(
+		ctx,
+		wallet.ID,
+		0,
+	)
+
+	assert.ErrorIs(
+		t,
+		err,
+		domain.ErrorInvalidAmount,
+	)
+
+	// "Negatif" yatırma işlemi..
+	err = service.Deposit(
+		ctx,
+		wallet.ID,
+		-100,
+	)
+
+	assert.ErrorIs(
+		t,
+		err,
+		domain.ErrorInvalidAmount,
+	)
+}
+
+func TestWalletService_Withdraw_In_SufficientFunds(t *testing.T) {
+
+	repo := repository.NewMemoryWalletRepository()
+	service := services.NewWalletService(repo)
+	ctx := context.Background()
+
+	wallet, _ := service.CreateWallet(
+		ctx,
+		"Gizem",
+		"TRY",
+	)
+
+	// "0" TL çekme işlemi..
+	err := service.Withdraw(
+		ctx,
+		wallet.ID,
+		0,
+	)
+
+	assert.ErrorIs(
+		t,
+		err,
+		domain.ErrorInsufficientFunds,
+	)
+
+	err = service.Withdraw(
+		ctx,
+		wallet.ID,
+		-50,
+	)
+
+	assert.ErrorIs(
 		t,
 		err,
 		domain.ErrorInsufficientFunds,
