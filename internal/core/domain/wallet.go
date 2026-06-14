@@ -1,14 +1,7 @@
 package domain
 
 import (
-	"errors"
 	"time"
-)
-
-// Uygulama genelinde aşağıdaki hata tanımlarını kullanacağız..
-var (
-	ErrorInsufficientFunds = errors.New("insufficient funds in wallet..") // Cüzdanda yetersiz bakiye
-	ErrorInvalidAmount     = errors.New("amount must be greater than zero..")
 )
 
 type Wallet struct {
