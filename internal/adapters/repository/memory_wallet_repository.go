@@ -18,7 +18,7 @@ import (
 // "MemoryWalletRepository", WalletRepository interface'ini memory üzerinden implement eder.
 type MemoryWalletRepository struct {
 	wallets map[string]*domain.Wallet
-	mu      sync.RWMutex // <-- Her cüzdan işlemi için okuma/yazma güvenliği sağlayacak kilit
+	mu      sync.Mutex // <-- Her wallet işlemi için read/write güvenliği sağlayacak kilit!
 }
 
 // "NewMemoryWalletRepository", yeni bir memory deposu create eder.
@@ -30,6 +30,7 @@ func NewMemoryWalletRepository() *MemoryWalletRepository {
 
 // "Create" ile yeni bir cüzdanı memory'e kaydeder.
 func (r *MemoryWalletRepository) Create(ctx context.Context, wallet *domain.Wallet) error {
+
 	r.mu.Lock()         // → Aynı anda farklı goroutine'lerin "wallets" map'ine erişimini kısıtlar.
 	defer r.mu.Unlock() // → function bitince kilidi açar. (RACE CONDITION önlemek.)
 
@@ -44,30 +45,41 @@ func (r *MemoryWalletRepository) Create(ctx context.Context, wallet *domain.Wall
 
 // GetByID'ye göre cüzdanı getir
 func (r *MemoryWalletRepository) GetByID(ctx context.Context, id string) (*domain.Wallet, error) {
-	r.mu.RLock() // <-- Okuma(Read) Kilidi (Aynı anda birden fazla kişi güvenle okuyabilir)
-	defer r.mu.RUnlock()
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	wallet, exists := r.wallets[id]
 	if !exists {
 		return nil, errors.New("wallet not found..")
 	}
 
-	//? Go'da pointer döndüğümiz için, dışarıda yer alan katmanların(servis) map'te ki orijinal veriyi kilit dışındayken manipüle etmemesi için nesnenin kopyasını (deep copy) dönmeliyiz.
+	//? Go'da pointer döndüğümüz için, dışarıda yer alan katmanların(servis) map'te ki orijinal veriyi kilit dışındayken manipüle etmemesi için nesnenin kopyasını (deep copy) dönmeliyiz.
 	clonedWallet := *wallet
 	return &clonedWallet, nil
-
-	// return wallet, nil
 }
 
 // Update ile mevcut olan wallet'i günceller..
 func (r *MemoryWalletRepository) Update(ctx context.Context, wallet *domain.Wallet) error {
+
 	r.mu.Lock() // <-- Yazma(Write) Kilidi (Aynı anda sadece TEK BİR "goroutine" güncelleyebilir)
 	defer r.mu.Unlock()
 
-	if _, exists := r.wallets[wallet.ID]; !exists {
+	currentWallet, exists := r.wallets[wallet.ID]
+	if !exists {
 		return errors.New("wallet not found")
 	}
 
-	r.wallets[wallet.ID] = wallet
+	// Servisten gelen versiyon, bende ki güncel versiyona eşit mi? değilse hatayı dön.
+	if wallet.Version != currentWallet.Version {
+		return errors.New("concurrent update detected (optimistic locking failure)")
+	}
+
+	// Doğrulama başarılıysa versiyonu 1 artırıp kaydet
+	wallet.Version++
+
+	// Map içerisine clone(kopya) saklamak güvenilir yöntemlerden biri.
+	cloned := *wallet
+	r.wallets[wallet.ID] = &cloned
 	return nil
 }
