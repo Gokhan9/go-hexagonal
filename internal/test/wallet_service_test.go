@@ -56,6 +56,10 @@ func TestWalletService_Deposit(t *testing.T) {
 	)
 }
 
+/*
+- Başarılı Para Çekme Testi
+- TestWalletService_Withdraw_Success = Cüzdandan başarılı bir şekilde para çekilmesini test eder.
+*/
 func TestWalletService_Withdraw_Success(t *testing.T) {
 
 	repo := repository.NewMemoryWalletRepository()
@@ -98,6 +102,10 @@ func TestWalletService_Withdraw_Success(t *testing.T) {
 	)
 }
 
+/*
+- Yetersiz Bakiye Testi
+- TestWalletService_Withdraw_InsufficientFunds = Cüzdandaki bakiyeden fazla para çekilmeye çalışıldığında yetersiz bakiye hatası alınmasını test eder.
+*/
 func TestWalletService_Withdraw_InsufficientFunds(t *testing.T) {
 
 	repo := repository.NewMemoryWalletRepository()
@@ -123,6 +131,10 @@ func TestWalletService_Withdraw_InsufficientFunds(t *testing.T) {
 	)
 }
 
+/*
+- Geçersiz Miktar Para Yatırma Testi
+- TestWalletService_Deposit_InvalidAmount = Sıfır veya negatif miktarda para yatırılmaya çalışıldığında geçersiz miktar hatası alınmasını test eder.
+*/
 func TestWalletService_Deposit_InvalidAmount(t *testing.T) {
 
 	repo := repository.NewMemoryWalletRepository()
@@ -162,7 +174,11 @@ func TestWalletService_Deposit_InvalidAmount(t *testing.T) {
 	)
 }
 
-func TestWalletService_Withdraw_In_SufficientFunds(t *testing.T) {
+/*
+- Geçersiz Miktar Para Çekme Testi
+- TestWalletService_Withdraw_InvalidAmount = Sıfır veya negatif miktarda para çekilmeye çalışıldığında geçersiz miktar hatası alınmasını test eder.
+*/
+func TestWalletService_Withdraw_InvalidAmount(t *testing.T) {
 
 	repo := repository.NewMemoryWalletRepository()
 	service := services.NewWalletService(repo)
@@ -184,7 +200,7 @@ func TestWalletService_Withdraw_In_SufficientFunds(t *testing.T) {
 	assert.ErrorIs(
 		t,
 		err,
-		domain.ErrorInsufficientFunds,
+		domain.ErrorInvalidAmount,
 	)
 
 	err = service.Withdraw(
@@ -196,6 +212,6 @@ func TestWalletService_Withdraw_In_SufficientFunds(t *testing.T) {
 	assert.ErrorIs(
 		t,
 		err,
-		domain.ErrorInsufficientFunds,
+		domain.ErrorInvalidAmount,
 	)
 }
