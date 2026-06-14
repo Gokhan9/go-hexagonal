@@ -55,3 +55,46 @@ func TestWalletService_Deposit(t *testing.T) {
 		updated.Balance,
 	)
 }
+
+func TestWalletService_Withdraw_Success(t *testing.T) {
+
+	repo := repository.NewMemoryWalletRepository()
+	service := services.NewWalletService(repo)
+
+	ctx := context.Background()
+
+	// ? Cüzdan oluştur.
+	wallet, _ := service.CreateWallet(
+		ctx,
+		"Can",
+		"TRY",
+	)
+
+	require.NoError(
+		t,
+		service.Deposit(
+			ctx,
+			wallet.ID,
+			500,
+		),
+	)
+
+	err := service.Withdraw(
+		ctx,
+		wallet.ID,
+		200,
+	)
+
+	require.NoError(t, err)
+
+	updated, _ := repo.GetByID(
+		ctx,
+		wallet.ID,
+	)
+
+	assert.Equal(
+		t,
+		int64(300),
+		updated.Balance,
+	)
+}
