@@ -31,10 +31,10 @@ func NewMemoryWalletRepository() *MemoryWalletRepository {
 // "Create" ile yeni bir cüzdanı memory'e kaydeder.
 func (r *MemoryWalletRepository) Create(ctx context.Context, wallet *domain.Wallet) error {
 
-	r.mu.Lock()         // → Aynı anda farklı goroutine'lerin "wallets" map'ine erişimini kısıtlar.
+	r.mu.Lock()         // → Aynı anda farklı goroutine'lerin "wallets" map'ine erişimini kısıtlar. (Aynı anda sadece TEK BİR "goroutine" güncelleyebilir)
 	defer r.mu.Unlock() // → function bitince kilidi açar. (RACE CONDITION önlemek.)
 
-	// → "wallet.ID" ile "map" içinde arama yapıyor
+	// → r.wallets içerisinde "wallet.ID" ile "map" içinde arama yapıyor.
 	if _, exists := r.wallets[wallet.ID]; exists {
 		return errors.New("wallet already exists.")
 	}
@@ -62,7 +62,7 @@ func (r *MemoryWalletRepository) GetByID(ctx context.Context, id string) (*domai
 // Update ile mevcut olan wallet'i günceller..
 func (r *MemoryWalletRepository) Update(ctx context.Context, wallet *domain.Wallet) error {
 
-	r.mu.Lock() // <-- Yazma(Write) Kilidi (Aynı anda sadece TEK BİR "goroutine" güncelleyebilir)
+	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	currentWallet, exists := r.wallets[wallet.ID]
