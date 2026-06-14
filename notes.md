@@ -41,6 +41,19 @@ kontrol etmek (fail-fast) performansı artırır ve gereksiz DB/Memory yükünü
 - İyimser Kilitleme (Optimistic Locking) — DDD 
 → Gerçek projelerde (PostgreSQL/MySQL kullanırken) servis katmanına Mutex koymak performansı düşürür ve birden fazla sunucu (Replica/Pod) çalıştığında işe yaramaz. Bunun yerine nesneye bir "Version" alanı eklenir. Veritabanına güncellenmiş nesne gönderilirken "Eğer bendeki versiyon hâlâ veritabanındakiyle aynıysa güncelle" denir. Eğer başkası araya girip versiyonu değiştirdiyse hata fırlatılır ve işlem yeniden denenir (Retry).
 
+- Eşzamanlılık Kontrolü (Concurrency & Race Condition)
+
+Senaryo: Kullanıcının bakiyesi 1000 TRY. Aynı anda (milisaniyeler farkla) iki farklı istek geliyor:
+1. İstek: 500 TRY para çekme (Withdraw)
+2. İstek: 300 TRY para çekme (Withdraw)
+
+Eğer bu istekler eşzamanlı (goroutine'ler ile) çalışır ve bakiye kontrolünü aynı anda yaparlarsa, ikisi de bakiyeyi 1000 olarak görür. İki istek de onaylanır.
+* 1. İstek günceller: Bakiye 500 olur.
+* 2. İstek günceller (ve üstüne yazar): Bakiye 700 olur.
+* Gerçek olması gereken: 1000 - 500 - 300 = 200 bakiye kalmalıydı. Ama bakiye 700 kaldı! Banka zarar etti (Lost Update problemi).
+
+Bunu engellemek için Bellek Düzeyinde Kilitleme (Pessimistic Locking/Mutex) mekanizması ekledim.
+
 
 
 
