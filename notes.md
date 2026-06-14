@@ -13,7 +13,6 @@ ADAPTERS:
 
 
 
-
 internal/adapters/handler/wallet_handler.go
 
 → "http.ResponseWriter", Go’da HTTP response (sunucu cevabı) yazmak için kullanılan bir arayüzdür (interface).
@@ -54,6 +53,13 @@ Not: "require.ErrorIs", error zincirini gezer ve wrapped errorları kontrol eder
 🔥 Örnek
 
 Domain error: var ErrorInsufficientFunds = errors.New("insufficient funds")
+
+TEST : TestWalletService_Deposit_InvalidAmount ve TestWalletService_Withdraw_In_SufficientFunds
+
+1. Guard Clause (Koruyucu Koşul) Tasarımı: Metodun asıl ağır iş yüküne (veritabanından cüzdanı çekmek, kilitlemek vb.) girmeden önce girdilerin doğruluğunu en başta 
+kontrol etmek (fail-fast) performansı artırır ve gereksiz DB/Memory yükünü engeller.
+2. Domain Güvenliği: Finansal dünyada sıfır veya negatif bakiye işlemleri dolandırıcılığa (exploit) en açık yerlerdir. Negatif bir değer gönderildiğinde balance = balance + (-100) işlemi çalışarak Deposit fonksiyonunun gizlice bir Withdraw işlemine dönüşmesini engellemiş olduk.
+3. Mimaride Sorumluluk Dağılımı (Separation of Concerns): Validasyon hata tanımları Domain katmanında bulunur, çünkü bu hata iş mantığının bir parçasıdır. Service katmanı ise bu kuralı uygular.
 
 
 
