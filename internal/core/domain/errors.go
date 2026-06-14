@@ -4,6 +4,6 @@ import "errors"
 
 // Uygulama genelinde aşağıdaki hata tanımlarını kullanacağız..
 var (
-	ErrorInsufficientFunds = errors.New("insufficient funds in wallet..")     // Cüzdanda Yetersiz Bakiye bakiye
-	ErrorInvalidAmount     = errors.New("amount must be greater than zero..") // Geçersiz Miktar
+	ErrorInsufficientFunds = errors.New("Insufficient funds in wallet.")      // Cüzdanda Yetersiz Bakiye
+	ErrorInvalidAmount     = errors.New("Amount must be greater than 0.....") // Geçersiz Miktar
 )
