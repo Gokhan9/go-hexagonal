@@ -17,14 +17,16 @@ import (
 
 // "MemoryWalletRepository", WalletRepository interface'ini memory üzerinden implement eder.
 type MemoryWalletRepository struct {
-	wallets map[string]*domain.Wallet
-	mu      sync.Mutex // <-- Her wallet işlemi için read/write güvenliği sağlayacak kilit!
+	wallets           map[string]*domain.Wallet
+	idempotencyRecord map[string]*domain.IdempotencyRecord // ! YENİ EKLENDİ.
+	mu                sync.Mutex                           // <-- Her wallet işlemi için read/write güvenliği sağlayacak kilit!
 }
 
 // "NewMemoryWalletRepository", yeni bir memory deposu create eder.
 func NewMemoryWalletRepository() *MemoryWalletRepository {
 	return &MemoryWalletRepository{
-		wallets: make(map[string]*domain.Wallet),
+		wallets:           make(map[string]*domain.Wallet),
+		idempotencyRecord: make(map[string]*domain.IdempotencyRecord), // ! YENİ EKLENDİ.
 	}
 }
 
@@ -81,5 +83,26 @@ func (r *MemoryWalletRepository) Update(ctx context.Context, wallet *domain.Wall
 	// Map içerisine clone(kopya) saklamak güvenilir yöntemlerden biri.
 	cloned := *wallet
 	r.wallets[wallet.ID] = &cloned
+	return nil
+}
+
+func (r *MemoryWalletRepository) GetIdempotencyRecord(ctx context.Context, key string) (*domain.IdempotencyRecord, error) {
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	record, exists := r.idempotencyRecord[key]
+	if !exists {
+		return nil, nil
+	}
+	return record, nil
+}
+
+func (r *MemoryWalletRepository) SaveIdempotencyRecord(ctx context.Context, record *domain.IdempotencyRecord) error {
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.idempotencyRecord[record.Key] = record // ? Yeni "Record", "Map" içine eklenir.
 	return nil
 }
