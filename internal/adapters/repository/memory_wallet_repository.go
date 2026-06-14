@@ -44,8 +44,8 @@ func (r *MemoryWalletRepository) Create(ctx context.Context, wallet *domain.Wall
 
 // GetByID'ye göre cüzdanı getir
 func (r *MemoryWalletRepository) GetByID(ctx context.Context, id string) (*domain.Wallet, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	wallet, exists := r.wallets[id]
 	if !exists {
