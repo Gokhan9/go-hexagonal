@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"go-hexagonal/internal/adapters/repository"
+	"go-hexagonal/internal/core/domain"
 	services "go-hexagonal/internal/core/service"
 	"testing"
 
@@ -96,5 +97,31 @@ func TestWalletService_Withdraw_Success(t *testing.T) {
 		t,
 		int64(300),
 		updated.Balance,
+	)
+}
+
+func TestWalletService_Withdraw_InsufficientFunds(t *testing.T) {
+
+	repo := repository.NewMemoryWalletRepository()
+	service := services.NewWalletService(repo)
+
+	ctx := context.Background()
+
+	wallet, _ := service.CreateWallet(
+		ctx,
+		"CAN",
+		"TRY",
+	)
+
+	err := service.Withdraw(
+		ctx,
+		wallet.ID,
+		300,
+	)
+
+	require.ErrorIs(
+		t,
+		err,
+		domain.ErrorInsufficientFunds,
 	)
 }
