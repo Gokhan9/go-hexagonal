@@ -41,6 +41,10 @@ func (s *walletService) GetWallet(ctx context.Context, id string) (*domain.Walle
 
 func (s *walletService) Deposit(ctx context.Context, walletID string, amount int64) error {
 
+	if amount <= 0 {
+		return domain.ErrorInvalidAmount // <-- Guard Clause(Koruyucu Koşul)
+	}
+
 	wallet, err := s.repo.GetByID(ctx, walletID)
 	if err != nil {
 		return err
@@ -55,6 +59,10 @@ func (s *walletService) Deposit(ctx context.Context, walletID string, amount int
 }
 
 func (s *walletService) Withdraw(ctx context.Context, walletID string, amount int64) error {
+
+	if amount <= 0 {
+		return domain.ErrorInsufficientFunds // <-- Guard Clause
+	}
 
 	wallet, err := s.repo.GetByID(ctx, walletID)
 	if err != nil {
