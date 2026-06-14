@@ -54,7 +54,7 @@ Not: "require.ErrorIs", error zincirini gezer ve wrapped errorları kontrol eder
 
 Domain error: var ErrorInsufficientFunds = errors.New("insufficient funds")
 
-TEST : TestWalletService_Deposit_InvalidAmount ve TestWalletService_Withdraw_In_SufficientFunds
+🛡️ TEST : TestWalletService_Deposit_InvalidAmount ve TestWalletService_Withdraw_In_SufficientFunds
 
 1. Guard Clause (Koruyucu Koşul) Tasarımı: Metodun asıl ağır iş yüküne (veritabanından cüzdanı çekmek, kilitlemek vb.) girmeden önce girdilerin doğruluğunu en başta 
 kontrol etmek (fail-fast) performansı artırır ve gereksiz DB/Memory yükünü engeller.
