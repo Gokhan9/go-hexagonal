@@ -35,6 +35,7 @@ func TestWalletService_Deposit(t *testing.T) {
 	// ? Wallet.ID numaralı cüzdana 500 yatır.
 	err = service.Deposit(
 		ctx,
+		"",
 		wallet.ID,
 		100,
 	)
@@ -78,6 +79,7 @@ func TestWalletService_Withdraw_Success(t *testing.T) {
 		t,
 		service.Deposit(
 			ctx,
+			"",
 			wallet.ID,
 			500,
 		),
@@ -85,6 +87,7 @@ func TestWalletService_Withdraw_Success(t *testing.T) {
 
 	err := service.Withdraw(
 		ctx,
+		"",
 		wallet.ID,
 		200,
 	)
@@ -121,6 +124,7 @@ func TestWalletService_Withdraw_InsufficientFunds(t *testing.T) {
 
 	err := service.Withdraw(
 		ctx,
+		"",
 		wallet.ID,
 		300,
 	)
@@ -151,6 +155,7 @@ func TestWalletService_Deposit_InvalidAmount(t *testing.T) {
 	// "0" yatırma işlemi..
 	err := service.Deposit(
 		ctx,
+		"",
 		wallet.ID,
 		0,
 	)
@@ -164,6 +169,7 @@ func TestWalletService_Deposit_InvalidAmount(t *testing.T) {
 	// "Negatif" yatırma işlemi..
 	err = service.Deposit(
 		ctx,
+		"",
 		wallet.ID,
 		-100,
 	)
@@ -194,6 +200,7 @@ func TestWalletService_Withdraw_InvalidAmount(t *testing.T) {
 	// "0" TL çekme işlemi..
 	err := service.Withdraw(
 		ctx,
+		"",
 		wallet.ID,
 		0,
 	)
@@ -206,6 +213,7 @@ func TestWalletService_Withdraw_InvalidAmount(t *testing.T) {
 
 	err = service.Withdraw(
 		ctx,
+		"",
 		wallet.ID,
 		-50,
 	)
@@ -221,7 +229,7 @@ func TestWalletService_Withdraw_InvalidAmount(t *testing.T) {
 Eşzamanlılık(Concurrency) hatasını yakalamak ve kodun doğruluğunu kanıtlamak için Race Condition Testi yazıyoruz. Aynı anda 100 adet goroutine ile cüzdana para yatırabiliriz.
 */
 
-func TestWalletService_Concurrent_Deposit(t *testing.T) {
+func TestWalletService_Deposit_Concurrent(t *testing.T) {
 
 	repo := repository.NewMemoryWalletRepository()
 	service := services.NewWalletService(repo)
@@ -238,7 +246,7 @@ func TestWalletService_Concurrent_Deposit(t *testing.T) {
 	for i := 0; i < goroutineCount; i++ {
 		go func() {
 			defer wg.Done() // goroutine işini tamamladığında sayaçtan "1" eksilir. Function başına yazılır hata payını düşürmek için..
-			_ = service.Deposit(ctx, wallet.ID, depositAmount)
+			_ = service.Deposit(ctx, "", wallet.ID, depositAmount)
 		}()
 	}
 
@@ -250,5 +258,67 @@ func TestWalletService_Concurrent_Deposit(t *testing.T) {
 		t,
 		int64(goroutineCount*depositAmount),
 		updated.Balance)
+}
 
+func TestWalletService_Deposit_Idempotency(t *testing.T) {
+
+	repo := repository.NewMemoryWalletRepository()
+	service := services.NewWalletService(repo)
+	ctx := context.Background()
+
+	// ! Wallet Create
+	wallet, err := service.CreateWallet(ctx, "Hakan", "TRY")
+	require.NoError(t, err)
+
+	// ! IdempotencyKey
+	idempotencyKey := "unique-deposit-key-1"
+
+	// ! İlk Para Yatırma(Deposit) İşlemi Başarılı Olmalı
+	err = service.Deposit(ctx, idempotencyKey, wallet.ID, 1000) // 10 TL (1000 kuruş)
+	require.NoError(t, err)
+
+	// ! İkinci Para Yatırma(Deposit) İşlemi "IDEMPOTENT" Olmalı - Tekrar İşlem Yapmamalı.
+	err = service.Deposit(ctx, idempotencyKey, wallet.ID, 1000)
+	require.NoError(t, err) // Hata vermemeli, başarılı gibi "nil" dönmeli.
+
+	// ! Bakiye Kontrolü (Bakiye 20 TL değil, 10 TL olmalı)
+	updated, err := repo.GetByID(ctx, wallet.ID)
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		int64(1000),
+		updated.Balance)
+}
+
+func TestWalletService_Withdraw_Idempotency(t *testing.T) {
+
+	repo := repository.NewMemoryWalletRepository()
+	service := services.NewWalletService(repo)
+	ctx := context.Background()
+
+	// ! Wallet Create
+	wallet, err := service.CreateWallet(ctx, "Mert", "TRY")
+	require.NoError(t, err)
+
+	// ! İlk olarak bakiye yükleyelim (idempotency key kullanmadan geçebiliriz)
+	err = service.Deposit(ctx, "", wallet.ID, 2000)
+	require.NoError(t, err)
+
+	idempotencyKey := "unique-deposit-key-1"
+
+	// ! İkinci olarak İlk Para Çekme İşlemi (Başarılı Olmalı)
+	err = service.Withdraw(ctx, idempotencyKey, wallet.ID, 500)
+	require.NoError(t, err)
+
+	// !  İkinci Para Çekme İşlemi - (Idempotent Olmalı - Tekrar para çekmemeli)
+	err = service.Withdraw(ctx, idempotencyKey, wallet.ID, 500)
+	require.NoError(t, err)
+
+	updated, err := repo.GetByID(ctx, wallet.ID)
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		int64(1500),
+		updated.Balance,
+	)
 }
