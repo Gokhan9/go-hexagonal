@@ -1,116 +1,130 @@
-📌 PORTS:
+# 🚀 Go Hexagonal Wallet Service - Geliştirici Notları
 
-1 - Driver/Primary(Birincil) PORT ve Driven/Secondary(İkincil) PORT olmak üzere 2 adet Port'u kullanıyoruz. 
-- Driver/Primary(Birincil) PORT: Handler(service) ile ilgili işlemler yapmak istiyorsak sahip olduğumuz Handler'lar bu interface'i implement edecekler.(WalletService)
-- Driven/Secondary(İkincil) PORT: Application'un veriyi nasıl saklayacağını bilir. Ayrıca DB(postgres,redis vb..) bu interface'i implement eder.(WalletRepository)
+Bu doküman, projede uygulanan **Hexagonal Mimari (Ports & Adapters)**, **Eşzamanlılık (Concurrency)** yönetimi, **Mükerrer İşlem Koruması (Idempotency)** ve test stratejilerine dair teknik detayları ve tasarım kararlarını içerir.
 
-📌 ADAPTERS: 
+---
 
-2 - Portları harici bileşenlerle bağlayan parça adaptördür. İki tür adaptör vardır.
-- Driver Adapter / Primary Adapter: Business logic işlemini gerçekleştirmek için "PORT" interface'ini kullanır..
-- Driven Adapter / Secondary Adapter: Uygulama, dış bileşenlerle(databaseler(postgre,mongo), dış servisler(Ödeme servisleri(iyzico)), API'ler(hava durumu API'si), Mesajlaşma sistemi(rabbitmq, kafka), e-posta,bildirim sistemleri(SMTP, Firebase Cloud Message), Harici SaaS Sistemleri(CRM,ERP)) iletişim kurmak için bunu kullanır. İş mantığının isteğini, dış teknoloji bileşenlerinin isteklerine dönüştürür.
+## 📌 İçindekiler
+1. [Mimaride Portlar ve Adaptörler (Ports & Adapters)](#1-mimaride-portlar-ve-adaptörler-ports--adapters)
+2. [Güvenli ve Sağlam Domain Tasarımı](#2-güvenli-ve-sağlam-domain-tasarımı)
+3. [Eşzamanlılık Kontrolü ve Yarış Durumları (Concurrency & Race Conditions)](#3-eşzamanlılık-kontrolü-ve-yarış-durumları-concurrency--race-conditions)
+4. [Idempotency (Mükerrer İşlem Koruması)](#4-idempotency-mükerrer-işlem-koruması)
+5. [Katmanların Detaylı İncelenmesi](#5-katmanların-detaylı-incelenmesi)
+   - [Test Katmanı (`wallet_service_test.go`)](#test-katmanı-wallet_service_testgo)
+   - [Sunum Katmanı (`wallet_handler.go`)](#sunum-katmanı-wallet_handlergo)
+   - [Veri Erişim Katmanı (`memory_wallet_repository.go`)](#veri-erişim-katmanı-memory_wallet_repositorygo)
 
+---
 
+## 1. Mimaride Portlar ve Adaptörler (Ports & Adapters)
 
+### 🔌 Portlar (Interfaces)
+Uygulamada iki tür port kullanılır:
 
+*   **Driver / Primary (Birincil) PORT:** Sunum katmanının (örn. HTTP API) iş mantığına erişebilmesi için tanımlanan arayüzdür. İş yeteneklerinin kontratıdır.
+    *   *Örnek:* `WalletService` arayüzü. API Handler'ları bu portu çağırır.
+*   **Driven / Secondary (İkincil) PORT:** İş mantığının dış dünyaya (veri saklama, dış servisler) veri göndermek/çekmek için kullandığı kontratlardır.
+    *   *Örnek:* `WalletRepository` arayüzü. Veritabanı (PostgreSQL, Redis vb.) bu arayüzü implement eder.
 
+### ⚙️ Adaptörler (Adapters)
+Portları harici bileşenlere bağlayan somut uygulama sınıflarıdır:
 
+*   **Driver Adapter / Primary Adapter:** İş mantığı işlemlerini tetiklemek için birincil portu kullanır.
+    *   *Örnek:* HTTP API Handler katmanı. Gelen HTTP isteklerini ayrıştırıp `WalletService` portunu tetikler.
+*   **Driven Adapter / Secondary Adapter:** İş mantığının taleplerini dış teknolojilerin diline dönüştürür ve ikincil portları uygular.
+    *   *Örnek:* Veritabanları (PostgreSQL, MongoDB), dış ödeme entegrasyonları (İyzico), mesaj kuyrukları (RabbitMQ, Kafka), bildirim sistemleri (SMTP, Firebase) veya in-memory saklayıcılar.
 
+---
 
-🔥 Örnek
+## 2. Güvenli ve Sağlam Domain Tasarımı
 
-Domain error: var ErrorInsufficientFunds = errors.New("insufficient funds")
+Projede uygulanan domain kurallarında şu üç temel yaklaşım benimsenmiştir:
 
-🛡️ TEST 
+1.  **Guard Clause (Koruyucu Koşul) Tasarımı:** Metodun asıl ağır iş yüküne (veritabanından veri çekmek, kilitlemek vb.) girmeden önce girdilerin doğruluğunu en başta kontrol etmesidir (*fail-fast*). Bu yaklaşım performansı artırır ve gereksiz DB/Memory yükünü engeller.
+2.  **Domain Güvenliği:** Finansal işlemlerde negatif bakiye işlemleri dolandırıcılığa (*exploit*) en açık noktalardır. Negatif bir değer gönderildiğinde `balance = balance + (-amount)` şeklinde çalışıp `Deposit` işleminin gizlice bir para çekmeye (`Withdraw`) dönüşmesi engellenmiştir.
+3.  **Mimaride Sorumluluk Dağılımı (Separation of Concerns):** Validasyon hata tanımları (`ErrorInsufficientFunds`, `ErrorInvalidAmount`) Domain katmanında (`domain/errors.go`) yer alır çünkü bu hatalar doğrudan iş mantığı kuralıdır. Servis katmanı ise sadece bu kuralları uygulayıp akışı yönetir.
 
-→ TestWalletService_Deposit_InvalidAmount
-→ TestWalletService_Withdraw_In_SufficientFunds
+---
 
-1. Guard Clause (Koruyucu Koşul) Tasarımı: Metodun asıl ağır iş yüküne (veritabanından cüzdanı çekmek, kilitlemek vb.) girmeden önce girdilerin doğruluğunu en başta 
-kontrol etmek (fail-fast) performansı artırır ve gereksiz DB/Memory yükünü engeller.
-2. Domain Güvenliği: Finansal dünyada sıfır veya negatif bakiye işlemleri dolandırıcılığa (exploit) en açık yerlerdir. Negatif bir değer gönderildiğinde balance = balance + (-100) işlemi çalışarak Deposit fonksiyonunun gizlice bir Withdraw işlemine dönüşmesini engellemiş olduk.
-3. Mimaride Sorumluluk Dağılımı (Separation of Concerns): Validasyon hata tanımları Domain katmanında bulunur, çünkü bu hata iş mantığının bir parçasıdır. Service katmanı ise bu kuralı uygular.
+## 3. Eşzamanlılık Kontrolü ve Yarış Durumları (Concurrency & Race Conditions)
 
+### 🚨 Yarış Durumu (Race Condition) Senaryosu
+Kullanıcının bakiyesi **1000 TRY** olsun. Milisaniyeler farkla iki farklı istek gelsin:
+1.  **1. İstek:** 500 TRY para çekme (Withdraw)
+2.  **2. İstek:** 300 TRY para çekme (Withdraw)
 
-→ TestWalletService_Concurrent_Deposit 
+Eğer bu istekler eşzamanlı çalışır ve bakiye kontrolünü aynı anda yaparlarsa, ikisi de bakiyeyi **1000 TRY** olarak görür. İki istek de onaylanır:
+*   1. istek bakiyeyi günceller: **500 TRY** yapar.
+*   2. istek bakiyeyi günceller (ve üstüne yazar): **700 TRY** yapar.
+*   **Olması Gereken:** $1000 - 500 - 300 = 200\text{ TRY}$ bakiye kalmalıydı. Ancak bakiye 700 TRY kaldı ve sistem açık verdi (*Lost Update* problemi).
 
-- wallet.go içerisine "Version int" eklendi.
-- memory_wallet_repository.go içerisinde yer alan MemoryWalletRepository struct değeri "sync.Mutex" çevrildi. Ayrıca "Update" fonksiyonunda güncelleme yapıldı.
-- wallet_service.go içerisinde ki Deposit fonksiyonunda ki kod bloğu for döngüsüne alındı.
+### 🛡️ Çözüm Yöntemleri
 
-- İyimser Kilitleme (Optimistic Locking) — DDD 
-→ Gerçek projelerde (PostgreSQL/MySQL kullanırken) servis katmanına Mutex koymak performansı düşürür ve birden fazla sunucu (Replica/Pod) çalıştığında işe yaramaz. Bunun yerine nesneye bir "Version" alanı eklenir. Veritabanına güncellenmiş nesne gönderilirken "Eğer bendeki versiyon hâlâ veritabanındakiyle aynıysa güncelle" denir. Eğer başkası araya girip versiyonu değiştirdiyse hata fırlatılır ve işlem yeniden denenir (Retry).
+#### A. Bellek Düzeyinde Kilitleme (Pessimistic Locking / Mutex)
+Bellek içi işlemlerde eşzamanlılığı korumak amacıyla `MemoryWalletRepository` üzerinde `sync.Mutex` kullanılarak yazma kilitleri (`Lock` / `Unlock`) eklenmiştir. Bu sayede aynı anda yalnızca tek bir goroutine güncellenmiş map değerine yazma yapabilir.
 
-- Eşzamanlılık Kontrolü (Concurrency & Race Condition)
+#### B. İyimser Kilitleme (Optimistic Concurrency Control - OCC)
+Gerçek dünyada (PostgreSQL/MySQL gibi ilişkisel veritabanlarında) servis katmanına Mutex koymak performansı düşürür ve uygulamanın birden fazla sunucu (Replica/Pod) üzerinde çalıştığı dağıtık mimarilerde işe yaramaz. 
 
-Senaryo: Kullanıcının bakiyesi 1000 TRY. Aynı anda (milisaniyeler farkla) iki farklı istek geliyor:
-1. İstek: 500 TRY para çekme (Withdraw)
-2. İstek: 300 TRY para çekme (Withdraw)
+Bunun yerine **DDD (Domain-Driven Design)** prensiplerine uygun olarak nesnelere bir `Version` alanı eklenir:
+1.  Nesne veritabanından mevcut versiyonuyla çekilir (`Version = 1`).
+2.  İşlemler uygulanır, bakiye güncellenir.
+3.  Veritabanına güncellenmiş nesne gönderilirken:
+    ```sql
+    UPDATE wallets SET balance = 500, version = 2 WHERE id = 'xxx' AND version = 1;
+    ```
+4.  Eğer başka bir işlem araya girip versiyonu `2` yaptıysa, etkilenen satır sayısı `0` döner. Bu durumda sistem hata fırlatır, servis katmanı bu eşzamanlılık hatasını yakalar, güncel nesneyi (ve yeni versiyonunu) tekrar çekip işlemi **yeniden dener (Retry)**.
 
-Eğer bu istekler eşzamanlı (goroutine'ler ile) çalışır ve bakiye kontrolünü aynı anda yaparlarsa, ikisi de bakiyeyi 1000 olarak görür. İki istek de onaylanır.
-* 1. İstek günceller: Bakiye 500 olur.
-* 2. İstek günceller (ve üstüne yazar): Bakiye 700 olur.
-* Gerçek olması gereken: 1000 - 500 - 300 = 200 bakiye kalmalıydı. Ama bakiye 700 kaldı! Banka zarar etti (Lost Update problemi).
+> **Uygulama Notu:** `TestWalletService_Concurrent_Deposit` test senaryosunda, `wallet_service.go` içerisindeki `Deposit` fonksiyonu bu kurala uygun olarak sonsuz bir `for` döngüsüne alınmış ve başarılı güncelleme yapılana dek retry mekanizması işletilmiştir.
 
-Bunu engellemek için Bellek Düzeyinde Kilitleme (Pessimistic Locking/Mutex) mekanizması ekledim.
+---
 
+## 4. Idempotency (Mükerrer İşlem Koruması)
 
+Ağ kopukluğu veya istemcinin butona yanlışlıkla üst üste basması nedeniyle aynı finansal isteğin sisteme mükerrer olarak gelmesi durumunda, işlemin **yalnızca bir kez** gerçekleşmesini sağlama özelliğidir.
 
+### 🛠️ Idempotency Akış Adımları
 
+1.  **İstemci Rolü:** İstemci (Client) her benzersiz işlem isteği için bir `Idempotency-Key` (genellikle UUID) oluşturur ve bunu HTTP isteğinin Header bilgisinde (`X-Idempotency-Key`) gönderir.
+2.  **Veritabanı Kaydı (`idempotency.go`):** Gelen anahtar ve bu işleme ait işlem sonucu (`Response` verisi) eşleştirilerek saklanır.
+3.  **Repository Arayüzü:** `WalletRepository` arayüzüne `GetIdempotencyRecord` ve `SaveIdempotencyRecord` kontratları eklenmiştir.
+4.  **In-Memory Implementasyonu:** `MemoryWalletRepository` bileşenine `idempotencyRecords map[string]*domain.IdempotencyRecord` alanı eklenerek bellek üzerinde kayıtlar tutulmuş ve `Mutex` ile thread-safe hale getirilmiştir.
+5.  **Service Katmanı Kontrolü:**
+    *   Eğer gelen `idempotencyKey` boş değilse, repository'den bu key sorgulanır.
+    *   Eğer bu anahtarla daha önce başarılı bir işlem yapılmışsa (**Duplicate Request**), işlem yeniden çalıştırılmaz; doğrudan önceki başarılı sonuç `nil` dönülerek (istemciye işlemin başarılı olduğu bildirilerek) fonksiyon sonlandırılır.
+    *   Eşzamanlılık ve iş kuralları başarıyla tamamlandıktan sonra, yeni anahtar ve işlem sonucu veritabanına kaydedilir.
 
-✏️ test/wallet_service_test.go
+---
 
-- repo := repository.NewMemoryWalletRepository() → Bellek içi(In-Memory) repo oluşturmak. DB bağımlılığı yok. "Postgre,Mongo" gibi db araçlarını kullanmayız.. Yerine "MemoryWalletRepository".
-- Veriler ram'de tutulur.
+## 5. Katmanların Detaylı İncelenmesi
 
-- service := services.NewWalletService(repo) → Service
-- ctx := context.Background() → boş context.
+### 🧪 Test Katmanı (`test/wallet_service_test.go`)
 
-- require.NoError(t, err) → Hata olması durumunda testi durdurur.
+Veritabanı bağımlılığı olmadan testleri izole ve hızlı bir şekilde koşturmak için in-memory repository yapısı kullanılır:
 
-- "require.NoError", aşağıda ki yapıya benzer bir hata döner.
-if err != nil {
-    t.FailNow()
-}
+*   **In-Memory Repo:** `repository.NewMemoryWalletRepository()` ile başlatılan sahte repository, verileri RAM'de tutar.
+*   **Hata Yönetimi ve Kontrolü:** 
+    *   `require.NoError(t, err)`: Beklenmeyen bir hata oluşursa testi anında durdurur (`t.FailNow()`).
+    *   `require.ErrorIs(t, err, domain.ErrorInsufficientFunds)`: Hataların sarmalanmış (*wrapped*) olup olmadığını kontrol etmek için hata zincirini gezer ve asıl hatanın doğru türde olup olmadığını sorgular.
+*   **Eşzamanlılık Testleri (`sync.WaitGroup`):**
+    *   `var wg sync.WaitGroup`: Eşzamanlı goroutine'leri koordine etmek için kullanılır.
+    *   `wg.Add(goroutineCount)`: Beklenecek toplam goroutine sayısını ayarlar.
+    *   `defer wg.Done()`: Goroutine işini tamamladığında sayacı `1` azaltır.
+    *   `wg.Wait()`: Tüm goroutine'ler tamamlanana (sayaç sıfırlanana) kadar ana akışı durdurur.
 
-→ require.ErrorIs(t, err, domain.ErrorInsufficientFunds) → "Error mu yoksa Wrap edilmiş mi onu kontrol eder"
-- Error'un "WRAP" edilmiş olup olmaması, hatanın başka bir yapı(wrapper) içinde sarılıp/sarılmadığını anlatır.
-Not: "require.ErrorIs", error zincirini gezer ve wrapped errorları kontrol eder. İçeride tanımladığımız "ERROR" var mı yok mu onu kontrol eder.
+### 🌐 Sunum Katmanı (`handler/wallet_handler.go`)
 
-- var wg sync.WaitGroup → Add, done ve wait işlemlerini başlatmak..
-- wg.Add(goroutineCount) → Beklenecek goroutine sayısı(örn:5)
-- defer wg.Done() → goroutine işini tamamladığında sayaçtan "1" eksilir. (Function içinde en başa yazılır.)
-- wg.Wait() → Sayaç 0 olana kadar diğer işlemleri bloklarız, 0 olduğunda program kaldığı yerden devam edebilir.
+HTTP isteklerinin karşılandığı ve yanıtlandığı katmandır:
 
+*   `http.ResponseWriter`: Go'da istemciye yanıt yazmak (gövde, durum kodu vb.) için kullanılan standart arayüzdür.
+*   `json.NewDecoder(r.Body).Decode(&req)`: İstemciden JSON formatında gelen ham HTTP gövdesini (Request Body) okuyarak Go struct yapısına dönüştürür.
+*   `r.PathValue("id")`: Go 1.22+ ile gelen native router özelliği sayesinde URL yolundaki parametreleri (örneğin cüzdan ID'sini) okur.
+*   `r.Header.Get("X-Idempotency-Key")`: İstemciden mükerrer işlem koruması için gönderilen benzersiz anahtarı okur ve servis katmanına iletir.
 
+### 💾 Veri Erişim Katmanı (`memory_wallet_repository.go`)
 
-✏️ handler/wallet_handler.go
+Bellek içi hızlı veri saklama katmanıdır:
 
-→ "http.ResponseWriter", Go’da HTTP response (sunucu cevabı) yazmak için kullanılan bir arayüzdür (interface).
-- w → response (cevap yazacağın yer)
-- r → request (istek bilgisi)
-
-
-- json.NewDecoder(r.body).Decode(&req) → Client'tan gelen HTTP Request'in body'sine bakar.(API üzerinden gönderilen) "JSON" formatında ki veriyi
-doğrudan Go içerisinde ki bir "struct'a dönüştürür(parse/decode)"
-- h.service.CreateWallet(r.Context(), req.Owner, req.Currency) → Service'a bağlı "CreateWallet" fonksiyonunu, istek bağlamı(context, cüzdan sahibi(Owner) ve
-para birimi(Currency)) parametreleriyle çağır. Dönen sonuçları "wallet ve err" değişkenlerine ata.
-- id := r.PathValue("id") → "Path" parametre okuma.
-- json":"created_at" not compatible with reflect.StructTag.Get: bad syntax for struct tag pair
-
-
-✏️ repository/memory_wallet_repository.go
-
-- wallets map[string]*domain.Wallet → "String anahtar" → Wallet pointer değeri tutan map
-- sync.Mutex → Her wallet işlemi için read/write güvenliği sağlayacak kilit!
-- r.mu.Lock() → Yazma(Write) Kilidi (Aynı anda sadece TEK BİR "goroutine" güncelleyebilir, Yazma(Write) işlemine başlamadan önce kilitle..)
-- defer r.mu.Unlock() → function bitince kilidi açar. (RACE CONDITION önlemek.)
-
-
-
-
-
-
-
-
-
+*   `wallets map[string]*domain.Wallet`: Benzersiz string anahtarlar üzerinden cüzdan pointer nesnelerini tutan eşleme (map) yapısıdır.
+*   `sync.Mutex`: Eşzamanlı okuma/yazma güvenliğini (thread-safety) sağlayan kilit mekanizmasıdır.
+*   `r.mu.Lock()` / `defer r.mu.Unlock()`: Yazma işlemine başlamadan önce kilit atılır, fonksiyon sonlandığında (hata olsa dahi `defer` sayesinde) kilit otomatik olarak serbest bırakılır. Bu sayede yarış durumları engellenir.
