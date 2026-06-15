@@ -16,7 +16,7 @@ const (
 type Transaction struct {
 	ID        string
 	WalletID  string
-	Amount    float64
+	Amount    int64 // ! "int64" yapıldı. finansal sistemlerde yuvarlama hatalarından kaçınmak. (kuruş/cent bazında) kullanmalıyız..
 	Type      TransactionType
 	CreatedAt time.Time
 }
