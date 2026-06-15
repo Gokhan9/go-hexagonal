@@ -78,6 +78,7 @@ func (h *WalletHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id")
+	idempotencyKey := r.Header.Get("X-Idempotency-Key") //! X-Idempotency-Key
 
 	var req dto.TransactionRequest
 
@@ -92,7 +93,8 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.service.Deposit(r.Context(), id, req.ToCents())
+	// ! idempotencyKey
+	err := h.service.Deposit(r.Context(), idempotencyKey, id, req.ToCents())
 	if err != nil {
 		h.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -105,6 +107,7 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id")
+	idempotencyKey := r.Header.Get("X-Idempotency-Key") //! X-Idempotency-Key
 
 	var req dto.TransactionRequest
 
@@ -118,7 +121,8 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.service.Withdraw(r.Context(), id, req.ToCents())
+	// ! idempotencyKey
+	err := h.service.Withdraw(r.Context(), idempotencyKey, id, req.ToCents())
 	if err != nil {
 		h.WriteError(w, http.StatusBadRequest, err.Error())
 		return
