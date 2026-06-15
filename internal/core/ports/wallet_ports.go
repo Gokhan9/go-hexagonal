@@ -11,8 +11,11 @@ import (
 type WalletService interface {
 	CreateWallet(ctx context.Context, owner, currency string) (*domain.Wallet, error)
 	GetWallet(ctx context.Context, id string) (*domain.Wallet, error)
-	Deposit(ctx context.Context, walletID string, amount int64) error
-	Withdraw(ctx context.Context, walletID string, amount int64) error
+
+	// ! Adım 1: "ports.WalletService" interface'indeki "Deposit" ve "Withdraw" metod imzalarını güncelleyeceğiz ("idempotencyKey" parametresini ekleyeceğiz).
+	// ! "idempotencyKey" parametreleri  YENİ EKLENDİ.
+	Deposit(ctx context.Context, idempotencyKey string, walletID string, amount int64) error
+	Withdraw(ctx context.Context, idempotencyKey string, walletID string, amount int64) error
 }
 
 // ?WalletRepository - Driven Port - Secondary Port (İkincil)
