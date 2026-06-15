@@ -260,6 +260,9 @@ func TestWalletService_Deposit_Concurrent(t *testing.T) {
 		updated.Balance)
 }
 
+/*
+- Senaryo A (Deposit Idempotency): Aynı idempotency key ile ardışık iki deposit yapıldığında, bakiye yalnızca bir kere artmalı.
+*/
 func TestWalletService_Deposit_Idempotency(t *testing.T) {
 
 	repo := repository.NewMemoryWalletRepository()
@@ -290,6 +293,9 @@ func TestWalletService_Deposit_Idempotency(t *testing.T) {
 		updated.Balance)
 }
 
+/*
+- Senaryo B (Withdraw Idempotency): Aynı idempotency key ile ardışık iki withdraw yapıldığında, bakiye yalnızca bir kere azalmalı.
+*/
 func TestWalletService_Withdraw_Idempotency(t *testing.T) {
 
 	repo := repository.NewMemoryWalletRepository()
