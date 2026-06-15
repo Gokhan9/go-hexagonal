@@ -18,15 +18,17 @@ import (
 // "MemoryWalletRepository", WalletRepository interface'ini memory üzerinden implement eder.
 type MemoryWalletRepository struct {
 	wallets           map[string]*domain.Wallet
-	idempotencyRecord map[string]*domain.IdempotencyRecord // ! YENİ EKLENDİ.
-	mu                sync.Mutex                           // <-- Her wallet işlemi için read/write güvenliği sağlayacak kilit!
+	idempotencyRecord map[string]*domain.IdempotencyRecord
+	transactions      map[string][]*domain.Transaction // ! YENİ EKLENDİ. Cüzdan ID'lerini anahtar olarak kullanan ve *domain.Transaction slice'larını değer olarak tutan bir transactions map'i.
+	mu                sync.Mutex                       // <-- Her wallet işlemi için read/write güvenliği sağlayacak kilit!
 }
 
 // "NewMemoryWalletRepository", yeni bir memory deposu create eder.
 func NewMemoryWalletRepository() *MemoryWalletRepository {
 	return &MemoryWalletRepository{
 		wallets:           make(map[string]*domain.Wallet),
-		idempotencyRecord: make(map[string]*domain.IdempotencyRecord), // ! YENİ EKLENDİ.
+		idempotencyRecord: make(map[string]*domain.IdempotencyRecord),
+		transactions:      make(map[string][]*domain.Transaction), // ! YENİ EKLENDİ.
 	}
 }
 
@@ -105,4 +107,31 @@ func (r *MemoryWalletRepository) SaveIdempotencyRecord(ctx context.Context, reco
 
 	r.idempotencyRecord[record.Key] = record // ? Yeni "Record", "Map" içine eklenir.
 	return nil
+}
+
+func (r *MemoryWalletRepository) SaveTransaction(ctx context.Context, tn *domain.Transaction) error {
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.transactions[tn.WalletID] = append(r.transactions[tn.WalletID], tn) // ! İşlem Kaydı eklerken "append" ile listeye ekleme yaptık.
+	return nil
+}
+
+/*
+Geçmiş kayıtları getirirken dışarıdan manipüle edilmemesi için slice'ın bir kopyası (deep copy) döndürülüyor.
+*/
+func (r *MemoryWalletRepository) GetTransactionsByWalletID(ctx context.Context, walletID string) ([]*domain.Transaction, error) {
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	/*
+		tns ------> [ ptr1 ][ ptr2 ]
+		cloned ---> [ ptr1 ][ ptr2 ]
+	*/
+	tns := r.transactions[walletID]                 // 1. walletID ile ilgili slice çektik.
+	cloned := make([]*domain.Transaction, len(tns)) // Yeni Slice create edildi, NOT:SLICE KOPYALANIYOR, TRANSACTIONS OBJELERİ DEĞİL.
+	copy(cloned, tns)                               // "copy" ile elemanlar içine aktarılıyor.
+	return cloned, nil
 }
