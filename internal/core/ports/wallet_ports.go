@@ -26,7 +26,10 @@ type WalletRepository interface {
 	GetByID(ctx context.Context, id string) (*domain.Wallet, error)
 	Update(ctx context.Context, wallet *domain.Wallet) error
 
-	// ! YENİ EKLENDİ.
 	GetIdempotencyRecord(ctx context.Context, key string) (*domain.IdempotencyRecord, error) // "KEY"'in önceden kullanılıp, kullanılmadığını kontrol edeceğiz.
 	SaveIdempotencyRecord(ctx context.Context, record *domain.IdempotencyRecord) error       // Yeni işlemi "KEY" ile kaydedeceğiz.
+
+	// ! YENİ EKLENDİ.
+	SaveTransaction(ctx context.Context, tn *domain.Transaction) error                             // İşlem kaydını kalıcı hale getirir, save'ler
+	GetTransactionsByWalletID(ctx context.Context, walletID string) ([]*domain.Transaction, error) // ID'ye göre cüzdana ait tüm geçmiş hareketleri getirir.
 }
