@@ -4,6 +4,7 @@ import (
 	"context"
 	"go-hexagonal/internal/core/domain"
 	"go-hexagonal/internal/core/ports"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -39,60 +40,84 @@ func (s *walletService) GetWallet(ctx context.Context, id string) (*domain.Walle
 	return s.repo.GetByID(ctx, id)
 }
 
-/*
-func (s *walletService) Deposit(ctx context.Context, walletID string, amount int64) error {
-
-	if amount <= 0 {
-		return domain.ErrorInvalidAmount // <-- Guard Clause(Koruyucu Koşul)
-	}
-
-	wallet, err := s.repo.GetByID(ctx, walletID)
-	if err != nil {
-		return err
-	}
-
-	// İş modelini domain modeli üzerindeki metodla işletmek.
-	if err := wallet.Deposit(amount); err != nil {
-		return err
-	}
-
-	return s.repo.Update(ctx, wallet)
-}*/
-
-func (s *walletService) Deposit(ctx context.Context, walletID string, amount int64) error {
+// ! 2. ADIM : WalletService, "Deposit ve Withdraw" Güncellemesi
+func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, walletID string, amount int64) error {
 
 	if amount <= 0 {
 		return domain.ErrorInvalidAmount // Guard Clause
 	}
 
-	// Başarılı olana kadar sonsuz döngü (veya maksimum deneme sınırı koyulabilir)
+	// ! 1. Idempotency Kontrolü
+	if idempotencyKey != "" {
+
+		// ! 1. Sorgulama (Check): Eğer "idempotencyKey" boş değilse, repository'den bu key ile daha önce kaydedilmiş bir kayıt olup olmadığını sorgula.
+		record, err := s.repo.GetIdempotencyRecord(ctx, idempotencyKey)
+		if err != nil {
+			return err
+		}
+
+		// ! "duplicate request"
+		if record != nil {
+			return nil
+		}
+	}
+
+	// ! 2. Optimistic Locking Retry Döngüsü
 	for {
+
 		wallet, err := s.repo.GetByID(ctx, walletID)
 		if err != nil {
 			return err
 		}
 
+		// ! Cüzdan'a para yatır(deposit), hata varsa hatayı dön.
 		if err := wallet.Deposit(amount); err != nil {
 			return err
 		}
 
 		err = s.repo.Update(ctx, wallet)
 		if err == nil {
-			// Eğer hata almadıysak başarıyla güncellenmiştir, döngüden çıkabiliriz
-			return nil
+			break // ! Update Başarılı, döngüden çıkar.
 		}
 
-		// Eğer eşzamanlılık hatası aldıysak döngü başa döner,
-		// güncel cüzdanı (ve yeni versiyonunu) tekrar çekip yeniden dener.
+		// Eşzamanlılık hatası alındıysa döngü başa döner ve tekrar dener. // güncel cüzdanı (ve yeni versiyonunu) tekrar çekip yeniden dener.
 	}
+
+	// ! 3. Başarılı olan işlemi "Idempotency Kaydı" olarak saklamak.
+	if idempotencyKey != "" {
+		record := &domain.IdempotencyRecord{
+			Key:       idempotencyKey,
+			Response:  []byte("Para Yatırma İşlemi Başarılı(SUCCESS)"),
+			CreatedAt: time.Now(),
+		}
+
+		if err := s.repo.SaveIdempotencyRecord(ctx, record); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (s *walletService) Withdraw(ctx context.Context, walletID string, amount int64) error {
+func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, walletID string, amount int64) error {
 
 	if amount <= 0 {
 		return domain.ErrorInvalidAmount // Guard Clause
 	}
 
+	// ! Idempotency Kontrolü
+	if idempotencyKey != "" {
+		record, err := s.repo.GetIdempotencyRecord(ctx, idempotencyKey)
+		if err != nil {
+			return err
+		}
+
+		if record != nil {
+			return nil
+		}
+	}
+
+	// ! Esas İşlemler
 	wallet, err := s.repo.GetByID(ctx, walletID)
 	if err != nil {
 		return err
@@ -102,5 +127,22 @@ func (s *walletService) Withdraw(ctx context.Context, walletID string, amount in
 		return err
 	}
 
-	return s.repo.Update(ctx, wallet)
+	if err := s.repo.Update(ctx, wallet); err != nil {
+		return err
+	}
+
+	// ! 3. Başarılı İşlem - Idempotency Kaydı Olarak Sakla
+	if idempotencyKey != "" {
+		record := &domain.IdempotencyRecord{
+			Key:       idempotencyKey,
+			Response:  []byte("Para Çekme İşlemi Başarılı(SUCCESS)"),
+			CreatedAt: time.Now(),
+		}
+
+		if err := s.repo.SaveIdempotencyRecord(ctx, record); err != nil {
+			return nil
+		}
+	}
+
+	return nil
 }
