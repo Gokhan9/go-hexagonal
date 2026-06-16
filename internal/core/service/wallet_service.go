@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"go-hexagonal/internal/core/domain"
 	"go-hexagonal/internal/core/ports"
 	"time"
@@ -76,15 +77,28 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 		}
 
 		err = s.repo.Update(ctx, wallet)
-		if err == nil {
+		if err != nil {
+			if errors.Is(err, domain.ErrConcurrentModification) {
+				continue
+			}
 			break // ! Update Başarılı, döngüden çıkar.
 		}
 
 		// Eşzamanlılık(Concurrency) hatası alındıysa döngü başa döner ve tekrar dener. // Güncel Cüzdanı (ve yeni versiyonunu) tekrar çekip yeniden dener.
 
+		/*
+			Deposit isteği
+				 ↓
+			Transaction nesnesi oluştur
+				 ↓
+			Transaction.ID = rastgele UUID üret
+				 ↓
+			SaveTransaction()
+
+		*/
 		// ! Transaction Instance Create and Save - 16.06.2026
 		tn := &domain.Transaction{
-			ID:        uuid.NewString(),
+			ID:        uuid.NewString(), // "Transaction Kaydına" benzersiz(unique) kimlik (ID) vermek için kullanırız. (örn:"d6d0b8b8-76ab-4f7a-b56c-8d3d0c11c4df")
 			WalletID:  walletID,
 			Amount:    amount,
 			Type:      domain.Deposit,
