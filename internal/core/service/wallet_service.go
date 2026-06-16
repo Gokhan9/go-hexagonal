@@ -80,7 +80,20 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 			break // ! Update Başarılı, döngüden çıkar.
 		}
 
-		// Eşzamanlılık hatası alındıysa döngü başa döner ve tekrar dener. // güncel cüzdanı (ve yeni versiyonunu) tekrar çekip yeniden dener.
+		// Eşzamanlılık(Concurrency) hatası alındıysa döngü başa döner ve tekrar dener. // Güncel Cüzdanı (ve yeni versiyonunu) tekrar çekip yeniden dener.
+
+		// ! Transaction Instance Create and Save - 16.06.2026
+		tn := &domain.Transaction{
+			ID:        uuid.NewString(),
+			WalletID:  walletID,
+			Amount:    amount,
+			Type:      domain.Deposit,
+			CreatedAt: time.Now(),
+		}
+
+		if err := s.repo.SaveTransaction(ctx, tn); err != nil {
+			return err // ! İşlem Kaydı(Transaction), başarısızsa akışı kesiyoruz.
+		}
 	}
 
 	// ! 3. Başarılı olan işlemi "Idempotency Kaydı" olarak saklamak.
@@ -117,18 +130,34 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 		}
 	}
 
-	// ! Esas İşlemler
-	wallet, err := s.repo.GetByID(ctx, walletID)
-	if err != nil {
-		return err
-	}
+	for {
+		// ! Esas İşlemler
+		wallet, err := s.repo.GetByID(ctx, walletID)
+		if err != nil {
+			return err
+		}
 
-	if err := wallet.Withdraw(amount); err != nil {
-		return err
-	}
+		if err := wallet.Withdraw(amount); err != nil {
+			return err
+		}
 
-	if err := s.repo.Update(ctx, wallet); err != nil {
-		return err
+		// "Transaction" Create and Save işlemi "unreachable code" uyarısı alıyorum, alt satırı == çevirince kod akışı düzeldi.
+		err = s.repo.Update(ctx, wallet)
+		if err == nil {
+			break
+		}
+
+		tn := &domain.Transaction{
+			ID:        uuid.NewString(),
+			WalletID:  walletID,
+			Amount:    amount,
+			Type:      domain.Withdraw,
+			CreatedAt: time.Now(),
+		}
+
+		if err := s.repo.SaveTransaction(ctx, tn); err != nil {
+			return err
+		}
 	}
 
 	// ! 3. Başarılı İşlem - Idempotency Kaydı Olarak Sakla
