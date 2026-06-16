@@ -96,6 +96,56 @@ Ağ kopukluğu veya istemcinin butona yanlışlıkla üst üste basması nedeniy
 
 ---
 
+### Defter-i Kebir / İşlem Geçmişi (Ledger / Transaction History)
+
+Repository içerisinde ki "GetTransactionsByWalletID" fonksiyonunun görsel açıklaması..
+
+Diyelim repository içinde şu veri var:
+r.transactions["wallet-1"] = []*domain.Transaction{
+	{ID: "tx1", Amount: 100},
+	{ID: "tx2", Amount: 200},
+}
+
+Fonksiyon çalışınca:
+tns := r.transactions["wallet-1"]
+
+BELLEKTE:
+
+       tns
+        ↓
++-------+-------+
+| ptr A | ptr B |
++-------+-------+
+
+ptr A → {ID:"tx1", Amount:100}
+ptr B → {ID:"tx2", Amount:200}
+
+
+SONRASI:
+cloned := make([]*domain.Transaction, len(tns))
+copy(cloned, tns)
+
+Yeni bir slice oluşuyor:
+
+       tns                  cloned
+        ↓                      ↓
++-------+-------+      +-------+-------+
+| ptr A | ptr B |      | ptr A | ptr B |
++-------+-------+      +-------+-------+
+      ↘                   ↙
+       {ID:"tx1", Amount:100}
+
+      ↘                   ↙
+       {ID:"tx2", Amount:200}
+
+Yani:
+
+tns → farklı slice
+cloned → farklı slice
+ama içindeki pointer’lar aynı objeleri gösteriyor.
+
+
+
 ## 5. Katmanların Detaylı İncelenmesi
 
 ### 🧪 Test Katmanı (`test/wallet_service_test.go`)

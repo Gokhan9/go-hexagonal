@@ -7,14 +7,6 @@ import (
 	"sync"
 )
 
-/*
-  Kodun Açıklaması:
-   * Thread-Safety: sync.RWMutex kullanarak haritanın (map) eşzamanlı (concurrent) okuma ve yazma işlemlerinde bozulmasını engelleriz.
-   * Port Uyumluluğu: internal/core/ports/wallet_ports.go içinde tanımladığımız WalletRepository interface'indeki tüm metodları (Create, GetByID, Update) somutlaştırırız.
-   * Veri Saklama: Veriler uygulama çalıştığı sürece bir map içinde tutulur; uygulama kapandığında veriler silinir. Bu, geliştirme aşamasında hızlı prototipleme sağlar.
-
-*/
-
 // "MemoryWalletRepository", WalletRepository interface'ini memory üzerinden implement eder.
 type MemoryWalletRepository struct {
 	wallets           map[string]*domain.Wallet
@@ -32,7 +24,7 @@ func NewMemoryWalletRepository() *MemoryWalletRepository {
 	}
 }
 
-// "Create" ile yeni bir cüzdanı memory'e kaydeder.
+// "Create" ile yeni bir wallet'i memorye kaydeder.
 func (r *MemoryWalletRepository) Create(ctx context.Context, wallet *domain.Wallet) error {
 
 	r.mu.Lock()         // → Aynı anda farklı goroutine'lerin "wallets" map'ine erişimini kısıtlar. (Aynı anda sadece TEK BİR "goroutine" güncelleyebilir)
@@ -88,6 +80,14 @@ func (r *MemoryWalletRepository) Update(ctx context.Context, wallet *domain.Wall
 	return nil
 }
 
+/*
+- (r *MemoryWalletRepository) - Fonksiyonun MemoryWalletRepository isimli yapıya (struct) ait bir metot (receiver) olduğunu ve verileri değiştirebilmek için
+işaretçi (pointer) kullandığını gösterir.
+- GetIdempotencyRecord - Fonksiyona verilen, benzersiz işlem anahtarına göre arama yapacağını ifade eden isimdir.
+- (ctx context.Context, key string) - Fonksiyonun girdi parametreleridir; ctx işlem sürelerini ve iptalleri yönetir, key ise aranacak benzersiz işlem anahtarı metnidir.
+- (*domain.IdempotencyRecord, error) - Fonksiyonun çıktı (dönüş) değerleridir; işlem başarılıysa bulunan kaydın adresini (*domain.IdempotencyRecord), başarısızsa hata detayını
+(error) döndürür.
+*/
 func (r *MemoryWalletRepository) GetIdempotencyRecord(ctx context.Context, key string) (*domain.IdempotencyRecord, error) {
 
 	r.mu.Lock()

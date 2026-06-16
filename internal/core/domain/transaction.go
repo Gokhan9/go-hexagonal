@@ -3,7 +3,7 @@ package domain
 import "time"
 
 /*
-*	Transaction yapısı cüzdan (wallet) içindeki para hareketlerini KAYIT altına almak için yazılır.
+*	Transaction yapısı cüzdan (wallet) içindeki para hareketlerini(İŞLEMLERİ) "KAYIT" altına almak için yazılır.
  */
 type TransactionType string
 

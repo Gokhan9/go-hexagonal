@@ -81,6 +81,7 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 			if errors.Is(err, domain.ErrConcurrentModification) {
 				continue
 			}
+
 			break // ! Update Başarılı, döngüden çıkar.
 		}
 
@@ -188,4 +189,9 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 	}
 
 	return nil
+}
+
+func (s *walletService) GetTransactions(ctx context.Context, walletID string) ([]*domain.Transaction, error) {
+
+	return s.repo.GetTransactionsByWalletID(ctx, walletID)
 }

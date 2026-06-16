@@ -7,8 +7,8 @@ import (
 type Wallet struct {
 	ID        string
 	Owner     string
-	Balance   int64 // Bakiye
-	Currency  string
+	Balance   int64  // Bakiye
+	Currency  string // Para Birimi
 	CreatedAt time.Time
 
 	Version int

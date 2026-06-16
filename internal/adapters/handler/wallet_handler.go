@@ -5,25 +5,13 @@ import (
 	"go-hexagonal/internal/api/dto"
 	"go-hexagonal/internal/core/ports"
 	"net/http"
+
+	"github.com/go-playground/validator/v10"
 )
 
 /*
 *Şimdi HTTP isteklerini karşılayacak olan ana adaptörümüzü yazacağız.
  */
-
-/*
-→ "http.ResponseWriter", Go’da HTTP response (sunucu cevabı) yazmak için kullanılan bir arayüzdür (interface).
-w → response (cevap yazacağın yer)
-r → request (istek bilgisi)
-*/
-
-/*
-json.NewDecoder(r.body).Decode(&req) → Client'tan gelen HTTP Request'in body'sine bakar.(API üzerinden gönderilen) "JSON" formatında ki veriyi
-doğrudan Go içerisinde ki bir "struct'a dönüştürür(parse/decode)"
-
-h.service.CreateWallet(r.Context(), req.Owner, req.Currency) → Service'a bağlı "CreateWallet" fonksiyonunu, istek bağlamı(context, cüzdan sahibi(Owner) ve
-para birimi(Currency) parametreleriyle çağır. Dönen sonuçları "wallet ve err" değişkenlerine ata.
-*/
 
 // dependency inject
 type WalletHandler struct {
@@ -36,6 +24,9 @@ func NewWalletHandler(service ports.WalletService) *WalletHandler {
 	}
 }
 
+// Validator
+var validate = validator.New()
+
 // 1. POST /wallets
 func (h *WalletHandler) Create(w http.ResponseWriter, r *http.Request) {
 
@@ -43,6 +34,12 @@ func (h *WalletHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.WriteError(w, http.StatusBadRequest, "Invalid Request Body.") // 400 (Client/Kullanıcı Hatası)
+		return
+	}
+
+	// Validasyon
+	if err := validate.Struct(req); err != nil {
+		h.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -129,6 +126,19 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.WriteJSON(w, http.StatusOK, map[string]string{"message": "Para çekme işlemi başarılı."})
+}
+
+func (h *WalletHandler) GetTransactions(w http.ResponseWriter, r *http.Request) {
+
+	id := r.PathValue("id")
+
+	tns, err := h.service.GetTransactions(r.Context(), id)
+	if err != nil {
+		h.WriteError(w, http.StatusInternalServerError, "Geçmiş kayıtlar alınamadı..")
+		return
+	}
+
+	h.WriteJSON(w, http.StatusOK, tns)
 }
 
 // Yardımcı JSON Metodları.

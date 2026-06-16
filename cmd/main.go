@@ -27,6 +27,7 @@ func main() {
 	mux.HandleFunc("GET /wallets/{id}", walletHandler.GetByID)
 	mux.HandleFunc("POST /wallets/{id}/deposit", walletHandler.Deposit)
 	mux.HandleFunc("POST /wallets/{id}/withdraw", walletHandler.Withdraw)
+	mux.HandleFunc("GET /wallets/{id}/transactions", walletHandler.GetTransactions)
 
 	// 6. HTTP Server Starting
 	log.Println("Sunucu:8080 Portunda çalışıyor......")

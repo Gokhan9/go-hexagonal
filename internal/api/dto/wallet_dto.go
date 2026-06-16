@@ -5,10 +5,10 @@ import (
 	"time"
 )
 
-// API'den gelen verileri karşılıyoruz.
+// API'ye gelen JSON'da ki "owner ve currency" alanlarını struct'a map ettik.
 type CreateWalletRequest struct {
-	Owner    string `json:"owner"`
-	Currency string `json:"currency"`
+	Owner    string `json:"owner" validate:"required,min=3"`
+	Currency string `json:"currency" validate:"required,len=3"`
 }
 
 // API'ye gönderilen verileri şekillendirme.
@@ -33,10 +33,10 @@ func ToDomainResponse(w *domain.Wallet) WalletResponse {
 
 /*
 TODO: UI/API dış dünyada parayı "float64" (örneğin 10.50 TL) olarak gönderiyor. Ancak domain katmanında kuruş hassasiyeti ve hassas finansal hesaplamalar için bunu "int64" (kuruş/sent bazlı: 1050 kuruş) olarak tutuyoruz.
-*Para yatırma ve çekme requestlerini karşılamak için tek bir ortak request modeli.
+* Deposit ve Withdraw requestlerini karşılamak için tek bir ortak request modeli.
 */
 type TransactionRequest struct {
-	Amount float64 `json:"amount"`
+	Amount float64 `json:"amount" validate:"required,gt=0"`
 }
 
 /*

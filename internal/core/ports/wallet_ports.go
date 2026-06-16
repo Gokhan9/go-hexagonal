@@ -5,7 +5,7 @@ import (
 	"go-hexagonal/internal/core/domain"
 )
 
-// ?WalletService - Driver Port - Primary Port (Birincil)
+// ? WalletService - Driver Port - Primary Port (Birincil)
 // Uygulamanın sunduğu iş yeteneklerinin kontratıdır.
 // Handler'lar (HTTP API) bu interface'i çağıracak.
 type WalletService interface {
@@ -16,9 +16,10 @@ type WalletService interface {
 	// ! "idempotencyKey" parametreleri  YENİ EKLENDİ.
 	Deposit(ctx context.Context, idempotencyKey string, walletID string, amount int64) error
 	Withdraw(ctx context.Context, idempotencyKey string, walletID string, amount int64) error
+	GetTransactions(ctx context.Context, walletID string) ([]*domain.Transaction, error)
 }
 
-// ?WalletRepository - Driven Port - Secondary Port (İkincil)
+// ? WalletRepository - Driven Port - Secondary Port (İkincil)
 // APP'in veriyi nasıl saklayacağının kontratı
 // DB(postgres,redis vb..) bu interface'i implement eder.
 type WalletRepository interface {
