@@ -328,3 +328,37 @@ func TestWalletService_Withdraw_Idempotency(t *testing.T) {
 		updated.Balance,
 	)
 }
+
+func TestWalletService_TransactionHistory_Verification(t *testing.T) {
+
+	repo := repository.NewMemoryWalletRepository()
+	service := services.NewWalletService(repo)
+	ctx := context.Background()
+
+	// WALLET CREATE
+	wallet, err := service.CreateWallet(ctx, "Gökhan", "TRY")
+	require.NoError(t, err)
+
+	// 1000 TRY PARA YATIRALIM.
+	err = service.Deposit(ctx, "key-verify-1", wallet.ID, 1000)
+	require.NoError(t, err)
+
+	// 300 TRY PARA ÇEK
+	err = service.Withdraw(ctx, "key-verify-1", wallet.ID, 300)
+	require.NoError(t, err)
+
+	// DB'den işlem geçmişi sorgulama
+	tns, err := repo.GetTransactionsByWalletID(ctx, wallet.ID)
+	require.NoError(t, err)
+
+	// Totalde 2 adet işlem geçmişi olmalı.
+	assert.Len(t, tns, 2)
+
+	// 1. İşlem DEPOSIT
+	assert.Equal(t, domain.Deposit, tns[0].Type)
+	assert.Equal(t, int64(1000), tns[0].Amount)
+
+	// 2. İşlem WITHDRAW
+	assert.Equal(t, domain.Withdraw, tns[1].Type)
+	assert.Equal(t, int64(300), tns[1].Amount)
+}
