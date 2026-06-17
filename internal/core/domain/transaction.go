@@ -10,7 +10,7 @@ type TransactionType string
 // sabitler(enums)
 const (
 	Deposit  TransactionType = "DEPOSIT"
-	Withdraw TransactionType = "Withdraw"
+	Withdraw TransactionType = "WITHDRAW"
 )
 
 type Transaction struct {
