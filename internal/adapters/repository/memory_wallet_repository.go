@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"go-hexagonal/internal/core/domain"
 	"sync"
 )
@@ -66,9 +67,13 @@ func (r *MemoryWalletRepository) Update(ctx context.Context, wallet *domain.Wall
 		return errors.New("wallet not found")
 	}
 
+	// --- DEBUG LOGLARI 1 ---
+	fmt.Printf("DEBUG: Updating wallet %s. Current Balance: %d, New Balance: %d\n",
+		wallet.ID, currentWallet.Balance, wallet.Balance)
+
 	// Servisten gelen versiyon, bende ki güncel versiyona eşit mi? değilse hatayı dön.
 	if wallet.Version != currentWallet.Version {
-		return errors.New("concurrent update detected (optimistic locking failure)")
+		return domain.ErrConcurrentModification
 	}
 
 	// Doğrulama başarılıysa versiyonu 1 artırıp kaydet
@@ -77,6 +82,10 @@ func (r *MemoryWalletRepository) Update(ctx context.Context, wallet *domain.Wall
 	// Map içerisine clone(kopya) saklamak güvenilir yöntemlerden biri.
 	cloned := *wallet
 	r.wallets[wallet.ID] = &cloned
+
+	// --- DEBUG LOGLARI 2 ---
+	fmt.Printf("DEBUG: Update successful for wallet %s. New version: %d\n",
+		wallet.ID, wallet.Version)
 	return nil
 }
 
