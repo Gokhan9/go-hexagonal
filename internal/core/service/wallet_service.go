@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"go-hexagonal/internal/core/domain"
 	"go-hexagonal/internal/core/ports"
 	"time"
@@ -81,22 +82,12 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 			if errors.Is(err, domain.ErrConcurrentModification) {
 				continue
 			}
-
-			break // ! Update Başarılı, döngüden çıkar.
+			fmt.Printf("ERROR: Update failed: %v\n", err)
+			return err
 		}
 
 		// Eşzamanlılık(Concurrency) hatası alındıysa döngü başa döner ve tekrar dener. // Güncel Cüzdanı (ve yeni versiyonunu) tekrar çekip yeniden dener.
 
-		/*
-			Deposit isteği
-				 ↓
-			Transaction nesnesi oluştur
-				 ↓
-			Transaction.ID = rastgele UUID üret
-				 ↓
-			SaveTransaction()
-
-		*/
 		// ! Transaction Instance Create and Save - 16.06.2026
 		tn := &domain.Transaction{
 			ID:        uuid.NewString(), // "Transaction Kaydına" benzersiz(unique) kimlik (ID) vermek için kullanırız. (örn:"d6d0b8b8-76ab-4f7a-b56c-8d3d0c11c4df")
@@ -109,6 +100,8 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 		if err := s.repo.SaveTransaction(ctx, tn); err != nil {
 			return err // ! İşlem Kaydı(Transaction), başarısızsa akışı kesiyoruz.
 		}
+
+		break
 	}
 
 	// ! 3. Başarılı olan işlemi "Idempotency Kaydı" olarak saklamak.
@@ -158,8 +151,12 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 
 		// "Transaction" Create and Save işlemi "unreachable code" uyarısı alıyorum, alt satırı == çevirince kod akışı düzeldi.
 		err = s.repo.Update(ctx, wallet)
-		if err == nil {
-			break
+		if err != nil {
+			if errors.Is(err, domain.ErrConcurrentModification) {
+				continue
+			}
+
+			return err
 		}
 
 		tn := &domain.Transaction{
@@ -173,6 +170,8 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 		if err := s.repo.SaveTransaction(ctx, tn); err != nil {
 			return err
 		}
+
+		break
 	}
 
 	// ! 3. Başarılı İşlem - Idempotency Kaydı Olarak Sakla
@@ -184,7 +183,7 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 		}
 
 		if err := s.repo.SaveIdempotencyRecord(ctx, record); err != nil {
-			return nil
+			return err
 		}
 	}
 
