@@ -339,12 +339,12 @@ func TestWalletService_TransactionHistory_Verification(t *testing.T) {
 	wallet, err := service.CreateWallet(ctx, "Gökhan", "TRY")
 	require.NoError(t, err)
 
-	// 1000 TRY PARA YATIRALIM.
-	err = service.Deposit(ctx, "key-verify-1", wallet.ID, 1000)
+	// 1000 TRY PARA YATIRALIM. - deposit için unique key
+	err = service.Deposit(ctx, "key-verify-deposit", wallet.ID, 1000)
 	require.NoError(t, err)
 
-	// 300 TRY PARA ÇEK
-	err = service.Withdraw(ctx, "key-verify-1", wallet.ID, 300)
+	// 300 TRY PARA ÇEK - withdraw için unique key
+	err = service.Withdraw(ctx, "key-verify-withdraw", wallet.ID, 300)
 	require.NoError(t, err)
 
 	// DB'den işlem geçmişi sorgulama
@@ -361,4 +361,55 @@ func TestWalletService_TransactionHistory_Verification(t *testing.T) {
 	// 2. İşlem WITHDRAW
 	assert.Equal(t, domain.Withdraw, tns[1].Type)
 	assert.Equal(t, int64(300), tns[1].Amount)
+}
+
+func TestWalletService_Full_E2E_Scenario(t *testing.T) {
+
+	repo := repository.NewMemoryWalletRepository()
+	service := services.NewWalletService(repo)
+	ctx := context.Background()
+
+	// 1-New Wallet Create
+	wallet, err := service.CreateWallet(ctx, "Gökhan", "TRY")
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), wallet.Balance) // Wallet create işleminde "BALANCE" 0 olmak zorunda.
+
+	// 2-Başarılı Para Yatırma(Deposit : 10050 TRY -> 100.50Krş)
+	depositKey := "unique-deposit-key-999" // ? "Deposit" işlemine özel unique bir key.
+	err = service.Deposit(ctx, depositKey, wallet.ID, 10050)
+	require.NoError(t, err)
+
+	// 3-Başarılı Para Yatırma(IDEMPOTENCY)
+	err = service.Deposit(ctx, depositKey, wallet.ID, 10050)
+	require.NoError(t, err) // BURADA Kİ HATAYA DÜŞMEMELİ, DÜŞERSE IDEMPOTENCY DÜZGÜN ÇALIŞMIYOR!
+
+	// 4-Bakiye Kontrol (SADECE 1 KEZ PARA YATIRILMIŞ OLMALI.)
+	updated, err := repo.GetByID(ctx, wallet.ID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(10050), updated.Balance)
+
+	// 5-Başarılı Para Çekme(Withdraw : 3050 TRY -> 30.50Krş)
+	withdrawKey := "unique-withdraw-key-999" // ? "Withdraw" işlemine özel unique bir key.
+	err = service.Withdraw(ctx, withdrawKey, wallet.ID, 3050)
+	require.NoError(t, err)
+
+	// 6-Başarılı Para Çekme(IDEMPOTENCY)
+	err = service.Withdraw(ctx, withdrawKey, wallet.ID, 3050)
+	require.NoError(t, err) // BURADA Kİ HATAYA DÜŞMEMELİ, DÜŞERSE IDEMPOTENCY DÜZGÜN ÇALIŞMIYOR!
+
+	// 7-Nihai Bakiye Kontrol(SADECE 1 KEZ PARA ÇEKİLMİŞ OLMALI. 	10050-3050 = 7000 Olmalı.)
+	updated, err = repo.GetByID(ctx, wallet.ID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(7000), updated.Balance)
+
+	// 8-İşlem Geçmişi Doğrulama ( 1 DEPOSIT - 1 WITHDRAW OLMALI - TOPLAM 2 ADET OLMALI)
+	tns, err := service.GetTransactions(ctx, wallet.ID)
+	require.NoError(t, err)
+	assert.Len(t, tns, 2)
+
+	assert.Equal(t, domain.Deposit, tns[0].Type)
+	assert.Equal(t, int64(10050), tns[0].Amount)
+
+	assert.Equal(t, domain.Withdraw, tns[1].Type)
+	assert.Equal(t, int64(3050), tns[1].Amount)
 }
