@@ -68,9 +68,9 @@ func (s *JWTService) GenerateToken(UserID, Username string) (string, error) {
 func (s *JWTService) ValidateToken(tokenStr string) (*UserClaims, error) {
 
 	/*
-		token, err := jwt.ParseWithClaims(tokenStr) - TokenStr parse(çözümleme) ediyor.
+		token, err := jwt.ParseWithClaims(tokenStr) - TokenStr parse(çözümleme) ediyor. Token parçalanır, callback çalışır.
 		UserClaims{} - Token içindeki payload(verilerin(userid,username)) dönüştürüleceği struct.
-		func(token *jwt.Token) (interface{}, error) - İmza doğrulama sırasında çalışan rollback.
+		func(token *jwt.Token) (interface{}, error) - İmza doğrulama sırasında çalışan rollback. Algoritma&SecretKey doğru mu?
 	*/
 	token, err := jwt.ParseWithClaims(tokenStr, UserClaims{}, func(token *jwt.Token) (interface{}, error) {
 		// Token'ın "HMAC" ile imzalandığını kontrol eder, farklı algoritma ile oluşturulan tokenları engeller.
