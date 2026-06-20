@@ -21,6 +21,7 @@ func NewUserService(repo ports.UserRepository, jwtSvc *JWTService) ports.UserSer
 	}
 }
 
+// User Kaydetme
 func (s *UserService) Register(ctx context.Context, username, password string) (*domain.User, error) {
 
 	// Username Check
@@ -49,6 +50,7 @@ func (s *UserService) Register(ctx context.Context, username, password string) (
 	return user, nil
 }
 
+// Authentication ve Token Üretimi - User Login
 func (s *UserService) Login(ctx context.Context, username, password string) (string, error) {
 
 	// || operatöründe ilk koşul "true" ise, Go ikinci koşula hiç bakmaz (çünkü sonuç zaten true olacaktır).
