@@ -14,6 +14,7 @@ type User struct {
 }
 
 /*
+-HASH HASH-
 * User'ın hesabını güvene almak, şifre sıfırlamak, yeni oluşturulan hesaplara geçici/ilk şifre atamak için "setPassword" yazarız.
 
 - Şifre Sıfırlama : User "Şifremi Unuttum" dediğinde ve e-postasına gönderilen tek kullanımlık link/kod ile yeni bir şifre belirlemek istediğinde.
@@ -21,7 +22,7 @@ type User struct {
 ilk şifresini kaydetmek.
 - Güvenlik / Şifre Değişikliği : Kullanıcının panel üzerinden mevcut şifresini daha güncel ve güçlü bir şifre ile değiştirmek istediğinde.
 
-! - SetPassword() → şifre oluşturma/değiştirme işlemi yapıyor (hash üretip kaydediyor)
+! - SetPassword() → şifre oluşturma/değiştirme işlemi yapıyor ("hash" üretip kaydediyor)
 
 NOT: Şifreler hiçbir zaman düz metin(plaintext) olarak db'ye kaydedilmemeli. "setPassword" fonksiyonunun arka planda bu parolayı/şifreyi güvenli bir şekilde hash algoritmalarıyla
 (örn:bcrypt) şifreleyerek db'ye aktardığına emin olmalıyız.
@@ -52,9 +53,7 @@ func (u *User) SetPassword(password string) error {
 - Merkezi Yönetim : Şifre doğrulama mantığı tek bir fonksiyonda toplanır.
 
 NOT: Şifre eşleşirse user'a erişim izni verilir.(Token veya Session oluşturulur.)
-
 */
-
 func (u *User) CheckPassword(password string) bool {
 
 	/*
