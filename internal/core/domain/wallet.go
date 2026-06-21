@@ -6,7 +6,7 @@ import (
 
 type Wallet struct {
 	ID        string
-	Owner     string
+	OwnerID   string // UPTADE: Artık UserID'ye bağlı OwnerID
 	Balance   int64  // Bakiye
 	Currency  string // Para Birimi
 	CreatedAt time.Time
