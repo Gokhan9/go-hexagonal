@@ -13,12 +13,6 @@ type User struct {
 	CreatedAt    time.Time
 }
 
-// AuthMiddleware
-type AuthenticatedUser struct {
-	UserID   string
-	Username string
-}
-
 /*
 -HASH HASH-
 * User'ın hesabını güvene almak, şifre sıfırlamak, yeni oluşturulan hesaplara geçici/ilk şifre atamak için "setPassword" yazarız.

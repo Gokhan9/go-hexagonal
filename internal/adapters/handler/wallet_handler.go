@@ -18,9 +18,9 @@ type WalletHandler struct {
 	service ports.WalletService
 }
 
-func NewWalletHandler(service ports.WalletService) *WalletHandler {
+func NewWalletHandler(walletService ports.WalletService) *WalletHandler {
 	return &WalletHandler{
-		service: service,
+		service: walletService,
 	}
 }
 

@@ -1,9 +1,10 @@
-package services
+package service
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"go-hexagonal/internal/adapters/middleware"
 	"go-hexagonal/internal/core/domain"
 	"go-hexagonal/internal/core/ports"
 	"time"
@@ -26,7 +27,7 @@ func (s *walletService) CreateWallet(ctx context.Context, owner, currency string
 	// factory methodu ile yeni bir wallet oluşturmak..
 	wallet := &domain.Wallet{
 		ID:       uuid.NewString(),
-		Owner:    owner,
+		OwnerID:  owner, // UPDATE: OwnerID
 		Balance:  0,
 		Currency: currency,
 	}
@@ -39,7 +40,24 @@ func (s *walletService) CreateWallet(ctx context.Context, owner, currency string
 }
 
 func (s *walletService) GetWallet(ctx context.Context, id string) (*domain.Wallet, error) {
-	return s.repo.GetByID(ctx, id)
+
+	// * 1- ISTEK ATAN KULLANICIYI "CONTEXT" İÇİNDEN OKU.
+	user, err := middleware.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	wallet, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// * 2- YETKI KONTROLÜ: Bu wallet istek atan user'a mı ait?
+	if wallet.OwnerID != user.UserID {
+		return nil, domain.ErrorUnauthorized
+	}
+
+	return wallet, nil
 }
 
 // ! 2. ADIM : WalletService, "Deposit ve Withdraw" Güncellemesi
@@ -47,6 +65,11 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 
 	if amount <= 0 {
 		return domain.ErrorInvalidAmount // Guard Clause
+	}
+
+	user, err := middleware.GetUserFromContext(ctx)
+	if err != nil {
+		return err
 	}
 
 	// ! 1. Idempotency Kontrolü
@@ -70,6 +93,11 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 		wallet, err := s.repo.GetByID(ctx, walletID)
 		if err != nil {
 			return err
+		}
+
+		// * YETKİ KONTROLÜ: Para yatırılacak cüzdan bu kullanıcıya mı ait?
+		if wallet.OwnerID != user.UserID {
+			return domain.ErrorUnauthorized
 		}
 
 		// ! Cüzdan'a para yatır(deposit), hata varsa hatayı dön.
@@ -126,6 +154,11 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 		return domain.ErrorInvalidAmount // Guard Clause
 	}
 
+	user, err := middleware.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	// ! Idempotency Kontrolü
 	if idempotencyKey != "" {
 		record, err := s.repo.GetIdempotencyRecord(ctx, idempotencyKey)
@@ -143,6 +176,10 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 		wallet, err := s.repo.GetByID(ctx, walletID)
 		if err != nil {
 			return err
+		}
+
+		if wallet.OwnerID != user.UserID {
+			return domain.ErrorUnauthorized
 		}
 
 		if err := wallet.Withdraw(amount); err != nil {
