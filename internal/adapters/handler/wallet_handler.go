@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"go-hexagonal/internal/adapters/handler/middleware"
 	"go-hexagonal/internal/api/dto"
 	"go-hexagonal/internal/core/ports"
 	"net/http"
@@ -57,12 +58,14 @@ func (h *WalletHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id") // * "Path" parametre okuma.
 
+	user, _ := middleware.GetUsernameFromContext(r.Context())
+
 	if id == "" {
 		h.WriteError(w, http.StatusBadRequest, "Wallet ID required.")
 		return
 	}
 
-	wallet, err := h.service.GetWallet(r.Context(), id)
+	wallet, err := h.service.GetWallet(r.Context(), user.UserID, id)
 	if err != nil {
 		h.WriteError(w, http.StatusNotFound, "No wallet information was found for this ID.") // 404 (İstenen kayıt/sayfa/api bulunamadığı durumlar.)
 		return
@@ -91,7 +94,12 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ! idempotencyKey
-	err := h.service.Deposit(r.Context(), idempotencyKey, id, req.ToCents())
+	user, err := middleware.GetUsernameFromContext(r.Context())
+	if err != nil {
+		h.WriteError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	err = h.service.Deposit(r.Context(), idempotencyKey, id, user.UserID, req.TransactionID, req.ToCents())
 	if err != nil {
 		h.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -119,7 +127,12 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ! idempotencyKey
-	err := h.service.Withdraw(r.Context(), idempotencyKey, id, req.ToCents())
+	user, err := middleware.GetUsernameFromContext(r.Context())
+	if err != nil {
+		h.WriteError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	err = h.service.Withdraw(r.Context(), idempotencyKey, id, user.UserID, req.TransactionID, req.ToCents())
 	if err != nil {
 		h.WriteError(w, http.StatusBadRequest, err.Error())
 		return
