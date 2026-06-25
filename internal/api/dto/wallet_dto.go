@@ -36,7 +36,8 @@ TODO: UI/API dış dünyada parayı "float64" (örneğin 10.50 TL) olarak gönde
 * Deposit ve Withdraw requestlerini karşılamak için tek bir ortak request modeli.
 */
 type TransactionRequest struct {
-	Amount float64 `json:"amount" validate:"required,gt=0"`
+	Amount        float64 `json:"amount" validate:"required,gt=0"`
+	TransactionID string
 }
 
 /*
