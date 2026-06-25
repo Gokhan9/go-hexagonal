@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go-hexagonal/internal/adapters/middleware"
 	"go-hexagonal/internal/core/domain"
 	"go-hexagonal/internal/core/ports"
 	"time"
@@ -39,13 +38,7 @@ func (s *walletService) CreateWallet(ctx context.Context, owner, currency string
 	return wallet, nil
 }
 
-func (s *walletService) GetWallet(ctx context.Context, id string) (*domain.Wallet, error) {
-
-	// * 1- ISTEK ATAN KULLANICIYI "CONTEXT" İÇİNDEN OKU.
-	user, err := middleware.GetUserFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
+func (s *walletService) GetWallet(ctx context.Context, userID, id string) (*domain.Wallet, error) {
 
 	wallet, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -53,7 +46,7 @@ func (s *walletService) GetWallet(ctx context.Context, id string) (*domain.Walle
 	}
 
 	// * 2- YETKI KONTROLÜ: Bu wallet istek atan user'a mı ait?
-	if wallet.OwnerID != user.UserID {
+	if wallet.OwnerID != userID {
 		return nil, domain.ErrorUnauthorized
 	}
 
@@ -61,15 +54,10 @@ func (s *walletService) GetWallet(ctx context.Context, id string) (*domain.Walle
 }
 
 // ! 2. ADIM : WalletService, "Deposit ve Withdraw" Güncellemesi
-func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, walletID string, amount int64) error {
+func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, walletID string, userID string, transactionID string, amount int64) error {
 
 	if amount <= 0 {
 		return domain.ErrorInvalidAmount // Guard Clause
-	}
-
-	user, err := middleware.GetUserFromContext(ctx)
-	if err != nil {
-		return err
 	}
 
 	// ! 1. Idempotency Kontrolü
@@ -96,7 +84,7 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 		}
 
 		// * YETKİ KONTROLÜ: Para yatırılacak cüzdan bu kullanıcıya mı ait?
-		if wallet.OwnerID != user.UserID {
+		if wallet.OwnerID != userID {
 			return domain.ErrorUnauthorized
 		}
 
@@ -114,11 +102,9 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 			return err
 		}
 
-		// Eşzamanlılık(Concurrency) hatası alındıysa döngü başa döner ve tekrar dener. // Güncel Cüzdanı (ve yeni versiyonunu) tekrar çekip yeniden dener.
-
-		// ! Transaction Instance Create and Save - 16.06.2026
+		// ! Transaction Instance Create and Save
 		tn := &domain.Transaction{
-			ID:        uuid.NewString(), // "Transaction Kaydına" benzersiz(unique) kimlik (ID) vermek için kullanırız. (örn:"d6d0b8b8-76ab-4f7a-b56c-8d3d0c11c4df")
+			ID:        transactionID,
 			WalletID:  walletID,
 			Amount:    amount,
 			Type:      domain.Deposit,
@@ -126,7 +112,7 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 		}
 
 		if err := s.repo.SaveTransaction(ctx, tn); err != nil {
-			return err // ! İşlem Kaydı(Transaction), başarısızsa akışı kesiyoruz.
+			return err
 		}
 
 		break
@@ -148,15 +134,10 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 	return nil
 }
 
-func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, walletID string, amount int64) error {
+func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, walletID string, userID string, transactionID string, amount int64) error {
 
 	if amount <= 0 {
 		return domain.ErrorInvalidAmount // Guard Clause
-	}
-
-	user, err := middleware.GetUserFromContext(ctx)
-	if err != nil {
-		return err
 	}
 
 	// ! Idempotency Kontrolü
@@ -178,7 +159,8 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 			return err
 		}
 
-		if wallet.OwnerID != user.UserID {
+		// * YETKİ KONTROLÜ
+		if wallet.OwnerID != userID {
 			return domain.ErrorUnauthorized
 		}
 
@@ -186,18 +168,17 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 			return err
 		}
 
-		// "Transaction" Create and Save işlemi "unreachable code" uyarısı alıyorum, alt satırı == çevirince kod akışı düzeldi.
 		err = s.repo.Update(ctx, wallet)
 		if err != nil {
 			if errors.Is(err, domain.ErrConcurrentModification) {
 				continue
 			}
-
 			return err
 		}
 
+		// ! Transaction Instance Create and Save
 		tn := &domain.Transaction{
-			ID:        uuid.NewString(),
+			ID:        transactionID,
 			WalletID:  walletID,
 			Amount:    amount,
 			Type:      domain.Withdraw,
@@ -211,7 +192,6 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 		break
 	}
 
-	// ! 3. Başarılı İşlem - Idempotency Kaydı Olarak Sakla
 	if idempotencyKey != "" {
 		record := &domain.IdempotencyRecord{
 			Key:       idempotencyKey,
