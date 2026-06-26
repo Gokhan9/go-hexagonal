@@ -12,11 +12,6 @@ type contextKey string
 
 const UserContextKey contextKey = "user"
 
-type AuthenticatedUser struct {
-	UserID   string
-	Username string
-}
-
 /*
 Authorization Header kontrolü
 Bearer token parsing
@@ -61,10 +56,10 @@ func AuthMiddleware(jwtSvc ports.JWTValidator) func(http.Handler) http.Handler {
 }
 
 // Context'ten kullanıcı bilgisini güvenle çekmek için yardımcı fonksiyon
-func GetUserFromContext(ctx context.Context) (AuthenticatedUser, error) {
-	user, ok := ctx.Value(UserContextKey).(AuthenticatedUser)
+func GetUserFromContext(ctx context.Context) (domain.AuthenticatedUser, error) {
+	user, ok := ctx.Value(UserContextKey).(domain.AuthenticatedUser)
 	if !ok {
-		return AuthenticatedUser{}, domain.ErrorUnauthorized
+		return domain.AuthenticatedUser{}, domain.ErrorUnauthorized
 	}
 	return user, nil
 }
