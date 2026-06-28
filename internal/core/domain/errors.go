@@ -12,4 +12,7 @@ var (
 	ErrorUserAlreadyExists  = errors.New("Username is already taken")    // ilgili username'in önceden alınmış olması
 	ErrorInvalidCredentials = errors.New("Invalid username or password") // login sırasında username/e-posta eşleşmemesi
 	ErrorUnauthorized       = errors.New("Unauthorized access")          // kimlik doğrulama(authentication) başarısız(401).
+
+	// wallet error
+	ErrorWalletNotFound = errors.New("Wallet not found..")
 )

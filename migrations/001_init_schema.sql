@@ -2,7 +2,7 @@
 CREATE TABLE wallets (
     id UUID PRIMARY KEY,
     owner_id VARCHAR(255) NOT NULL,
-    balance BIGINT NOT NULL DEFAULT 0 CHECK (balance >= 0)
+    balance BIGINT NOT NULL DEFAULT 0 CHECK (balance >= 0),
     currency VARCHAR(3) NOT NULL,
     version INT NOT NULL DEFAULT 1, -- Optimistic Locking
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -11,7 +11,7 @@ CREATE TABLE wallets (
 -- işlem geçmişi kayıtları
 CREATE TABLE transactions (
     id UUID PRIMARY KEY,
-    wallet_id UUID NOT NULL REFERENCES wallets{id},
+    wallet_id UUID NOT NULL REFERENCES wallets(id),
     amount BIGINT NOT NULL,
     type VARCHAR(20) NOT NULL, -- 'DEPOSIT' veya 'WITHDRAW'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

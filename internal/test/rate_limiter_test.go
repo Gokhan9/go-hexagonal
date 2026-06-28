@@ -43,7 +43,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	handlerToTest.ServeHTTP(w2, req2)
 
-	// TEST ASSERTIONS: Aynı IP'den 2. hızlı istek engellenmeli. 2. istek 429 değilse, errorf
+	// TEST ASSERTIONS: Aynı IP'den 2. hızlı istek engellenmeli. 2. istek 429 değilse, "errorf"
 	// w2.Code, İKİNCİ İSTEĞİN STATUS CODE
 	// w2.Code = 429 - test PASS
 	// w2.Code ≠ 429 - test FAIL
