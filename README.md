@@ -18,6 +18,7 @@ This project follows the Hexagonal Architecture pattern to decouple core busines
 - **Idempotency:** Protects against duplicate requests using `X-Idempotency-Key` headers.
 - **Authentication:** Secure user registration and login using JWT.
 - **Rate Limiting:** Protects API endpoints from abuse.
+- **Transaction Management:** Ensures data integrity for financial operations using database transactions (`BeginTx`, `Commit`, `Rollback`) and context-based propagation.
 - **Domain-Driven Design:** Strong domain rules and guard clauses to ensure financial integrity.
 - **Persistence:** Supports In-memory and PostgreSQL storage.
 - **Comprehensive Testing:** Unit and integration testing.
