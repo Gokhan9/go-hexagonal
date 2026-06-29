@@ -144,3 +144,18 @@ func (r *MemoryWalletRepository) GetTransactionsByWalletID(ctx context.Context, 
 	copy(cloned, tns)                               // "copy" ile elemanlar içine aktarılıyor.
 	return cloned, nil
 }
+
+// BeginTx, memory repository'de transaction yönetimi gerekmediği için mevcut "context" i olduğu gibi döner.
+func (r *MemoryWalletRepository) BeginTx(ctx context.Context) (context.Context, error) {
+	return ctx, nil
+}
+
+// Commit
+func (r *MemoryWalletRepository) Commit(ctx context.Context) error {
+	return nil
+}
+
+// Rollback
+func (r *MemoryWalletRepository) Rollback(ctx context.Context) error {
+	return nil
+}

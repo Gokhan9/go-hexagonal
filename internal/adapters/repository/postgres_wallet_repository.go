@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"go-hexagonal/internal/core/domain"
 )
 
@@ -93,4 +94,31 @@ func (r *PostgreWalletRepository) getExecutor(ctx context.Context) DBExecutor {
 		return tx
 	}
 	return r.db
+}
+
+func (r *PostgreWalletRepository) BeginTx(ctx context.Context) (context.Context, error) {
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return WithTx(ctx, tx), nil // context içine tx'i gömüyoruz
+}
+
+func (r *PostgreWalletRepository) Commit(ctx context.Context) error {
+	tx := GetTx(ctx)
+	if tx == nil {
+		return errors.New("no transaction found in context.")
+	}
+
+	return tx.Commit()
+}
+
+func (r *PostgreWalletRepository) Rollback(ctx context.Context) error {
+	tx := GetTx(ctx)
+	if tx == nil {
+		return nil
+	}
+	return tx.Rollback()
 }
