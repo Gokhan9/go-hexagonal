@@ -24,21 +24,21 @@ func main() {
 	// 4. Rate Limiter Start (SANİYEDE 2 İSTEK, 5 BURST KAPASİTE)
 	ratelimiter := limiter.NewInMemoryRateLimiter(2, 5)
 
-	// 5. Rate Limiter Oluştur
+	// 5. Rate Limiter Create
 	rateLimiterMiddleware := middleware.RateLimiterMiddleware(ratelimiter)
 
-	// HTTP ServeMux
+	// 6. HTTP ServeMux
 	mux := http.NewServeMux()
 
-	// 5. API Route
-	mux.HandleFunc("POST /wallets", walletHandler.Create)
+	// 7. API Route
+	//mux.HandleFunc("POST /wallets", walletHandler.Create)
 	mux.HandleFunc("GET /wallets/{id}", walletHandler.GetByID)
 	mux.HandleFunc("POST /wallets/{id}/deposit", walletHandler.Deposit)
 	mux.HandleFunc("POST /wallets/{id}/withdraw", walletHandler.Withdraw)
 	mux.HandleFunc("GET /wallets/{id}/transactions", walletHandler.GetTransactions)
 	mux.Handle("POST /wallets", rateLimiterMiddleware(http.HandlerFunc(walletHandler.Create)))
 
-	// 6. HTTP Server Starting
+	// 8. HTTP Server Starting
 	log.Println("Sunucu:8080 Portunda çalışıyor......")
 	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("Sunucu başlatılamadı: %v", err)

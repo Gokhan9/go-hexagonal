@@ -12,7 +12,7 @@ import (
 type MemoryWalletRepository struct {
 	wallets           map[string]*domain.Wallet
 	idempotencyRecord map[string]*domain.IdempotencyRecord
-	transactions      map[string][]*domain.Transaction // ! YENİ EKLENDİ. Cüzdan ID'lerini anahtar olarak kullanan ve *domain.Transaction slice'larını değer olarak tutan bir transactions map'i.
+	transactions      map[string][]*domain.Transaction // Cüzdan ID'lerini anahtar olarak kullanan ve *domain.Transaction slice'larını değer olarak tutan bir transactions map'i.
 	mu                sync.Mutex                       // <-- Her wallet işlemi için read/write güvenliği sağlayacak kilit!
 }
 
@@ -123,7 +123,7 @@ func (r *MemoryWalletRepository) SaveTransaction(ctx context.Context, tn *domain
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.transactions[tn.WalletID] = append(r.transactions[tn.WalletID], tn) // ! İşlem Kaydı eklerken "append" ile listeye ekleme yaptık.
+	r.transactions[tn.WalletID] = append(r.transactions[tn.WalletID], tn) // İşlem Kaydı eklerken "append" ile listeye ekleme yaptık.
 	return nil
 }
 
