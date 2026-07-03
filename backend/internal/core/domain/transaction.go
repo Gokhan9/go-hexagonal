@@ -3,8 +3,7 @@ package domain
 import "time"
 
 /*
-*	Transaction yapısı cüzdan (wallet) içindeki para hareketlerini(İŞLEMLERİ) "KAYIT" altına almak için yazılır.
- */
+Transaction, wallet içerisindeki tüm para hareketlerini (deposit, withdraw, transfer, fee vb) sistemde kayıt altına alan domain entity’dir. */
 type TransactionType string
 
 // sabitler(enums)
