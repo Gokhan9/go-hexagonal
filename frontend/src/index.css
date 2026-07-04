@@ -1,12 +1,11 @@
 :root {
-
     /* Colors (Cyber Green & Deep Black) */
     --color-bg-deep: #0a0a0a;
     --color-bg-card: #121212;
     --color-border: #2a2a2a;
 
-    --colod-primary: #00ff41;   /* Klasik terminal yeşili */
-    --color-primary-haver: #008f11;
+    --color-primary: #00ff41;
+    --color-primary-hover: #008f11;
 
     --color-text-main: #e0e0e0;
     --color-text-muted: #888888;
@@ -24,11 +23,11 @@
     --radius-lg: 12px;
 
     /* Yazı Tipi */
-    -font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Temel Sıfırlama ve Body Ayarları */
-* {
+/* Temel Sıfırlama */
+*, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
@@ -40,4 +39,12 @@ body {
     font-family: var(--font-family);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+}
+
+/* Global Layout Container */
+#root {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
