@@ -4,6 +4,7 @@ import (
 	"context"
 	"go-hexagonal/internal/adapters/repository"
 	"go-hexagonal/internal/core/domain"
+	"go-hexagonal/internal/core/service"
 	services "go-hexagonal/internal/core/service"
 	"sync"
 	"testing"
@@ -217,4 +218,73 @@ func TestWalletService_Full_E2E_Scenario(t *testing.T) {
 	assert.Equal(t, int64(10050), tns[0].Amount)
 	assert.Equal(t, domain.Withdraw, tns[1].Type)
 	assert.Equal(t, int64(3050), tns[1].Amount)
+}
+
+func TestWalletService_Transfer_Success(t *testing.T) {
+	repo := repository.NewMemoryWalletRepository()
+	service := service.NewWalletService(repo)
+	ctx := context.Background()
+
+	// Wallet Create
+	w1, _ := service.CreateWallet(ctx, "Gökhan", "TRY")
+	w2, _ := service.CreateWallet(ctx, "Can", "TRY")
+
+	// Bakiye yükle
+	service.Deposit(ctx, "", w1.ID, w1.OwnerID, uuid.NewString(), 1000)
+	service.Deposit(ctx, "", w2.ID, w2.OwnerID, uuid.NewString(), 500)
+
+	// Transfer
+	err := service.Transfer(ctx, "transfer-key-1", w1.ID, w2.ID, w1.OwnerID, 300)
+	require.NoError(t, err)
+
+	// Doğrulama
+	updatedW1, _ := repo.GetByID(ctx, w1.ID)
+	updatedW2, _ := repo.GetByID(ctx, w2.ID)
+
+	assert.Equal(t, int64(700), updatedW1.Balance)
+	assert.Equal(t, int64(800), updatedW2.Balance)
+}
+
+func TestWalletService_Transfer_InsufficientFunds(t *testing.T) {
+	repo := repository.NewMemoryWalletRepository()
+	service := service.NewWalletService(repo)
+	ctx := context.Background()
+
+	w1, _ := service.CreateWallet(ctx, "Gökhan", "TRY")
+	w2, _ := service.CreateWallet(ctx, "Can", "TRY")
+
+	// 100 try var
+	service.Deposit(ctx, "", w1.ID, w1.OwnerID, uuid.NewString(), 100)
+
+	// 200 transfer et
+	err := service.Transfer(ctx, "transfer-key-2", w1.ID, w2.ID, w1.OwnerID, 200)
+	require.ErrorIs(t, err, domain.ErrorInsufficientFunds)
+
+	// bakiye aynı kalmalı
+	updatedW1, _ := repo.GetByID(ctx, w1.ID)
+	updatedW2, _ := repo.GetByID(ctx, w2.ID)
+
+	assert.Equal(t, int64(100), updatedW1.Balance)
+	assert.Equal(t, int64(0), updatedW2.Balance)
+}
+
+func TestWalletService_GetBalance(t *testing.T) {
+	repo := repository.NewMemoryWalletRepository()
+	service := services.NewWalletService(repo)
+	ctx := context.Background()
+
+	// 1. Senaryo: create wallet
+	wallet, err := service.CreateWallet(ctx, "Gökhan", "TRY")
+	require.NoError(t, err)
+
+	// bakiye ekle(250)
+	service.Deposit(ctx, "", wallet.ID, wallet.OwnerID, uuid.NewString(), 250)
+
+	balance, err := service.GetBalance(ctx, wallet.ID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(250), balance)
+
+	// 2. Senaryo: Olmayan cüzdan için hata kontrolü
+	_, err = service.GetBalance(ctx, "non-existend-id")
+	require.EqualError(t, err, "wallet not found..")
 }
