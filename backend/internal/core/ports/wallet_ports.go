@@ -17,6 +17,8 @@ type WalletService interface {
 	Deposit(ctx context.Context, idempotencyKey string, walletID string, userID string, TransactionID string, amount int64) error
 	Withdraw(ctx context.Context, idempotencyKey string, walletID string, userID string, TransactionID string, amount int64) error
 	GetTransactions(ctx context.Context, walletID string) ([]*domain.Transaction, error)
+	Transfer(ctx context.Context, idempotencyKey string, fromWalletID string, toWalletID string, ownerID string, amount int64) error
+	GetBalance(ctx context.Context, walletID string) (int64, error)
 }
 
 // ? WalletRepository - Driven Port - Secondary Port (İkincil)

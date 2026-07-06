@@ -15,4 +15,6 @@ var (
 
 	// wallet error
 	ErrorWalletNotFound = errors.New("Wallet not found..")
+
+	ErrorSelfTransfer = errors.New("Self transfer is not allowed..") // kendi cüzdanına transfer yapılamaz.
 )
