@@ -1,0 +1,266 @@
+definitions:
+  domain.Transaction:
+    properties:
+      amount:
+        description: '! "int64" yapıldı. finansal sistemlerde yuvarlama hatalarından
+          kaçınmak. (kuruş/cent bazında) kullanmalıyız..'
+        format: int64
+        type: integer
+      createdAt:
+        type: string
+      id:
+        type: string
+      type:
+        $ref: '#/definitions/domain.TransactionType'
+      walletID:
+        type: string
+    type: object
+  domain.TransactionType:
+    enum:
+    - DEPOSIT
+    - WITHDRAW
+    type: string
+    x-enum-varnames:
+    - Deposit
+    - Withdraw
+  domain.Wallet:
+    properties:
+      balance:
+        description: Bakiye
+        format: int64
+        type: integer
+      createdAt:
+        type: string
+      currency:
+        description: Para Birimi
+        type: string
+      id:
+        type: string
+      ownerID:
+        description: 'UPTADE: Artık UserID''ye bağlı OwnerID'
+        type: string
+      version:
+        type: integer
+    type: object
+  dto.CreateWalletRequest:
+    properties:
+      currency:
+        type: string
+      owner:
+        minLength: 3
+        type: string
+    required:
+    - currency
+    - owner
+    type: object
+  dto.TransactionRequest:
+    properties:
+      amount:
+        type: number
+      transaction_id:
+        type: string
+    required:
+    - amount
+    - transaction_id
+    type: object
+  dto.TransferRequest:
+    properties:
+      amount:
+        type: integer
+      owner_id:
+        type: string
+      to_wallet_id:
+        type: string
+    required:
+    - amount
+    - owner_id
+    - to_wallet_id
+    type: object
+info:
+  contact: {}
+paths:
+  /wallets:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cüzdan bilgileri
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateWalletRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cüzdan Oluştur
+      tags:
+      - Wallets
+  /wallets/{id}/balance:
+    get:
+      parameters:
+      - description: Cüzdan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              format: int64
+              type: integer
+            type: object
+      summary: Bakiye sorgula
+      tags:
+      - Wallets
+  /wallets/{id}/transactions:
+    get:
+      parameters:
+      - description: Cüzdan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Transaction'
+            type: array
+      summary: İşlem geçmişini getir
+      tags:
+      - Wallets
+  /wallets/{id}/transfer:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Gönderen Cüzdan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Mükerrer işlem koruması
+        in: header
+        name: X-Idempotency-Key
+        type: string
+      - description: Transfer detayları
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TransferRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Transfer yap
+      tags:
+      - Wallets
+  /wallets/{id}/withdraw:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cüzdan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Mükerrer işlem koruması
+        in: header
+        name: X-Idempotency-Key
+        type: string
+      - description: Çekim detayları
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Para çek
+      tags:
+      - Wallets
+  /wallets{id}:
+    get:
+      parameters:
+      - description: Cüzdan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Wallet'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cüzdan Detayını Getir
+      tags:
+      - Wallets
+  /wallets{id}/deposit:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cüzdan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Mükerrer işlem koruması
+        in: header
+        name: X-Idempotency-Key
+        type: string
+      - description: Yatırma detayları
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Para yatır
+      tags:
+      - Wallets
+swagger: "2.0"

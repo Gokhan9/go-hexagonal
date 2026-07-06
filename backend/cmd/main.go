@@ -8,6 +8,8 @@ import (
 	services "go-hexagonal/internal/core/service"
 	"log"
 	"net/http"
+
+	_ "go-hexagonal/docs"
 )
 
 func main() {
@@ -30,13 +32,20 @@ func main() {
 	// 6. HTTP ServeMux
 	mux := http.NewServeMux()
 
+	fs := http.FileServer(http.Dir("./docs")) // statik dosyaları bir klasör listesi olarak listelemek.
+
 	// 7. API Route
 	//mux.HandleFunc("POST /wallets", walletHandler.Create)
 	mux.HandleFunc("GET /wallets/{id}", walletHandler.GetByID)
 	mux.HandleFunc("POST /wallets/{id}/deposit", walletHandler.Deposit)
 	mux.HandleFunc("POST /wallets/{id}/withdraw", walletHandler.Withdraw)
 	mux.HandleFunc("GET /wallets/{id}/transactions", walletHandler.GetTransactions)
+	mux.HandleFunc("GET /wallets/{id}/balance", walletHandler.GetBalance)
+	mux.HandleFunc("POST /wallets/{id}/transfer", walletHandler.Transfer)
+	//mux.HandleFunc("GET /swagger/*", httpSwagger.WrapHandler)
+
 	mux.Handle("POST /wallets", rateLimiterMiddleware(http.HandlerFunc(walletHandler.Create)))
+	mux.Handle("GET /swagger/", http.StripPrefix("/swagger/", fs)) //statik dosyaları bir klasör listesi olarak listelemek.
 
 	// 8. HTTP Server Starting
 	log.Println("Sunucu:8080 Portunda çalışıyor......")
