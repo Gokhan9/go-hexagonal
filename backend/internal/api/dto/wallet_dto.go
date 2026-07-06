@@ -41,6 +41,23 @@ type TransactionRequest struct {
 }
 
 /*
+	type DepositRequest struct {
+		Amount  int64  `json:"amount" validate:"required,gt=0"`
+		OwnerID string `json:"owner_id" validate:"required"`
+	}
+
+	type WithdrawRequest struct {
+		Amount  int64  `json:"amount" validate:"required,gt=0"`
+
+}
+*/
+type TransferRequest struct {
+	ToWalletID string `json:"to_wallet_id" validate:"required"`
+	Amount     int64  `json:"amount" validate:"required,gt=0"`
+	OwnerID    string `json:"owner_id" validate:"required"`
+}
+
+/*
 TODO: Gelen "float" tutarı, kuruş(int64) cinsine çeviren yardımcı bir metod.
 *Finansal işlemlerde "float" yuvarlama hatalarını önlemek için "0.5" ekleyerek "cast" ediyoruz.
 */

@@ -2,8 +2,10 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"go-hexagonal/internal/adapters/handler/middleware"
 	"go-hexagonal/internal/api/dto"
+	"go-hexagonal/internal/core/domain"
 	"go-hexagonal/internal/core/ports"
 	"net/http"
 
@@ -28,7 +30,13 @@ func NewWalletHandler(walletService ports.WalletService) *WalletHandler {
 // Validator
 var validate = validator.New()
 
-// 1. POST /wallets
+// @Summary Cüzdan Oluştur
+// @Tags Wallets
+// @Accept json
+// @Produce json
+// @Param body body dto.CreateWalletRequest true "Cüzdan bilgileri"
+// @Success 201 {object} map[string]string
+// @Router /wallets [post]
 func (h *WalletHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req dto.CreateWalletRequest
@@ -53,7 +61,13 @@ func (h *WalletHandler) Create(w http.ResponseWriter, r *http.Request) {
 	h.WriteJSON(w, http.StatusCreated, dto.ToDomainResponse(wallet))
 }
 
-// 2. GET /wallets/{id}
+// @Summary Cüzdan Detayını Getir
+// @Tags Wallets
+// @Produce json
+// @Param id path string true "Cüzdan ID"
+// @Success 200 {object} domain.Wallet
+// @Failure 404 {object} map[string]string
+// @Router /wallets{id} [get]
 func (h *WalletHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id") // * "Path" parametre okuma.
@@ -74,7 +88,15 @@ func (h *WalletHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	h.WriteJSON(w, http.StatusOK, dto.ToDomainResponse(wallet))
 }
 
-// 3. POST /wallets/{id}/deposit
+// @Summary Para yatır
+// @Tags Wallets
+// @Accept json
+// @Produce json
+// @Param id path string true "Cüzdan ID"
+// @Param X-Idempotency-Key header string false "Mükerrer işlem koruması"
+// @Param body body dto.TransactionRequest true "Yatırma detayları"
+// @Success 200 {object} map[string]string
+// @Router /wallets{id}/deposit [post]
 func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id")
@@ -108,7 +130,15 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	h.WriteJSON(w, http.StatusOK, map[string]string{"message": "Para yatırma işlemi başarılı."})
 }
 
-// 4. POST /wallets{id}/withdraw
+// @Summary Para çek
+// @Tags Wallets
+// @Accept json
+// @Produce json
+// @Param id path string true "Cüzdan ID"
+// @Param X-Idempotency-Key header string false "Mükerrer işlem koruması"
+// @Param body body dto.TransactionRequest true "Çekim detayları"
+// @Success 200 {object} map[string]string
+// @Router /wallets/{id}/withdraw [post]
 func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id")
@@ -141,6 +171,12 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 	h.WriteJSON(w, http.StatusOK, map[string]string{"message": "Para çekme işlemi başarılı."})
 }
 
+// @Summary İşlem geçmişini getir
+// @Tags Wallets
+// @Produce json
+// @Param id path string true "Cüzdan ID"
+// @Success 200 {array} domain.Transaction
+// @Router /wallets/{id}/transactions [get]
 func (h *WalletHandler) GetTransactions(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id")
@@ -152,6 +188,68 @@ func (h *WalletHandler) GetTransactions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	h.WriteJSON(w, http.StatusOK, tns)
+}
+
+// @Summary Transfer yap
+// @Tags Wallets
+// @Accept json
+// @Produce json
+// @Param id path string true "Gönderen Cüzdan ID"
+// @Param X-Idempotency-Key header string false "Mükerrer işlem koruması"
+// @Param body body dto.TransferRequest true "Transfer detayları"
+// @Success 202 {object} map[string]string
+// @Router /wallets/{id}/transfer [post]
+func (h *WalletHandler) Transfer(w http.ResponseWriter, r *http.Request) {
+
+	var req dto.TransferRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.WriteError(w, http.StatusBadRequest, "Invalid request body..")
+		return
+	}
+
+	// validasyon kontrolü
+	if err := validate.Struct(req); err != nil {
+		h.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	fromID := r.PathValue("id")
+
+	err := h.service.Transfer(r.Context(), r.Header.Get("X-Idempotency-Key"), fromID, req.ToWalletID, req.OwnerID, req.Amount)
+	if err != nil {
+		h.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Transfer Successful"})
+}
+
+// @Summary Bakiye sorgula
+// @Tags Wallets
+// @Produce json
+// @Param id path string true "Cüzdan ID"
+// @Success 200 {object} map[string]int64
+// @Router /wallets/{id}/balance [get]
+func (h *WalletHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
+
+	id := r.PathValue("id")
+
+	balance, err := h.service.GetBalance(r.Context(), id)
+	if err != nil {
+		// hataya göre ugun http status
+		if errors.Is(err, domain.ErrorWalletNotFound) {
+			h.WriteError(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+		h.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int64{"balance": balance})
 }
 
 // Yardımcı JSON Metodları.
