@@ -21,7 +21,7 @@ func NewMemoryWalletRepository() *MemoryWalletRepository {
 	return &MemoryWalletRepository{
 		wallets:           make(map[string]*domain.Wallet),
 		idempotencyRecord: make(map[string]*domain.IdempotencyRecord),
-		transactions:      make(map[string][]*domain.Transaction), // ! YENİ EKLENDİ.
+		transactions:      make(map[string][]*domain.Transaction),
 	}
 }
 
