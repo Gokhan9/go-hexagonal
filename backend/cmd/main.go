@@ -45,6 +45,7 @@ func main() {
 	//mux.HandleFunc("GET /swagger/*", httpSwagger.WrapHandler)
 
 	mux.Handle("POST /wallets", rateLimiterMiddleware(http.HandlerFunc(walletHandler.Create)))
+	mux.Handle("GET /wallets/{id}", rateLimiterMiddleware(http.HandlerFunc(walletHandler.GetByID)))
 	mux.Handle("GET /swagger/", http.StripPrefix("/swagger/", fs)) //statik dosyaları bir klasör listesi olarak listelemek.
 
 	// 8. HTTP Server Starting
