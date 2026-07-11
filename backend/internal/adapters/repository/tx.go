@@ -5,16 +5,16 @@ import (
 	"database/sql"
 )
 
-type txKey struct {
+type TxKey struct {
 }
 
 func WithTx(ctx context.Context, tx *sql.Tx) context.Context {
-	return context.WithValue(ctx, txKey{}, tx)
+	return context.WithValue(ctx, TxKey{}, tx)
 }
 
 func GetTx(ctx context.Context) *sql.Tx {
 
-	if tx, ok := ctx.Value(txKey{}).(*sql.Tx); ok {
+	if tx, ok := ctx.Value(TxKey{}).(*sql.Tx); ok {
 		return tx
 	}
 	return nil
