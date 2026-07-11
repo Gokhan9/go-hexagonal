@@ -14,9 +14,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type mockAuditRepo struct {
+}
+
+func (m *mockAuditRepo) Save(ctx context.Context, log *domain.AuditLog) error {
+	return nil // Testte loglama önemli değilse boş dön
+}
+
 func TestWalletService_Deposit(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	wallet, err := service.CreateWallet(ctx, "Gökhan", "TRY")
@@ -25,14 +33,15 @@ func TestWalletService_Deposit(t *testing.T) {
 	err = service.Deposit(ctx, "", wallet.ID, wallet.OwnerID, uuid.NewString(), 100)
 	require.NoError(t, err)
 
-	updated, err := repo.GetByID(ctx, wallet.ID)
+	updated, err := walletRepo.GetByID(ctx, wallet.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(100), updated.Balance)
 }
 
 func TestWalletService_Withdraw_Success(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	wallet, _ := service.CreateWallet(ctx, "Can", "TRY")
@@ -42,13 +51,14 @@ func TestWalletService_Withdraw_Success(t *testing.T) {
 	err := service.Withdraw(ctx, "", wallet.ID, wallet.OwnerID, uuid.NewString(), 200)
 	require.NoError(t, err)
 
-	updated, _ := repo.GetByID(ctx, wallet.ID)
+	updated, _ := walletRepo.GetByID(ctx, wallet.ID)
 	assert.Equal(t, int64(300), updated.Balance)
 }
 
 func TestWalletService_Withdraw_InsufficientFunds(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	wallet, _ := service.CreateWallet(ctx, "CAN", "TRY")
@@ -58,8 +68,9 @@ func TestWalletService_Withdraw_InsufficientFunds(t *testing.T) {
 }
 
 func TestWalletService_Deposit_InvalidAmount(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	wallet, _ := service.CreateWallet(ctx, "Gökhan", "TRY")
@@ -72,8 +83,9 @@ func TestWalletService_Deposit_InvalidAmount(t *testing.T) {
 }
 
 func TestWalletService_Withdraw_InvalidAmount(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	wallet, _ := service.CreateWallet(ctx, "Gizem", "TRY")
@@ -86,8 +98,9 @@ func TestWalletService_Withdraw_InvalidAmount(t *testing.T) {
 }
 
 func TestWalletService_Deposit_Concurrent(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	wallet, _ := service.CreateWallet(ctx, "Gökhan", "TRY")
@@ -107,13 +120,14 @@ func TestWalletService_Deposit_Concurrent(t *testing.T) {
 
 	wg.Wait()
 
-	updated, _ := repo.GetByID(ctx, wallet.ID)
+	updated, _ := walletRepo.GetByID(ctx, wallet.ID)
 	assert.Equal(t, int64(goroutineCount*depositAmount), updated.Balance)
 }
 
 func TestWalletService_Deposit_Idempotency(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	wallet, err := service.CreateWallet(ctx, "Hakan", "TRY")
@@ -127,14 +141,15 @@ func TestWalletService_Deposit_Idempotency(t *testing.T) {
 	err = service.Deposit(ctx, idempotencyKey, wallet.ID, wallet.OwnerID, uuid.NewString(), 1000)
 	require.NoError(t, err)
 
-	updated, err := repo.GetByID(ctx, wallet.ID)
+	updated, err := walletRepo.GetByID(ctx, wallet.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1000), updated.Balance)
 }
 
 func TestWalletService_Withdraw_Idempotency(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	wallet, err := service.CreateWallet(ctx, "Mert", "TRY")
@@ -151,14 +166,15 @@ func TestWalletService_Withdraw_Idempotency(t *testing.T) {
 	err = service.Withdraw(ctx, idempotencyKey, wallet.ID, wallet.OwnerID, uuid.NewString(), 500)
 	require.NoError(t, err)
 
-	updated, err := repo.GetByID(ctx, wallet.ID)
+	updated, err := walletRepo.GetByID(ctx, wallet.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1500), updated.Balance)
 }
 
 func TestWalletService_TransactionHistory_Verification(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	wallet, err := service.CreateWallet(ctx, "Gökhan", "TRY")
@@ -170,7 +186,7 @@ func TestWalletService_TransactionHistory_Verification(t *testing.T) {
 	err = service.Withdraw(ctx, "key-verify-withdraw", wallet.ID, wallet.OwnerID, uuid.NewString(), 300)
 	require.NoError(t, err)
 
-	tns, err := repo.GetTransactionsByWalletID(ctx, wallet.ID)
+	tns, err := walletRepo.GetTransactionsByWalletID(ctx, wallet.ID)
 	require.NoError(t, err)
 
 	assert.Len(t, tns, 2)
@@ -181,8 +197,9 @@ func TestWalletService_TransactionHistory_Verification(t *testing.T) {
 }
 
 func TestWalletService_Full_E2E_Scenario(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	wallet, err := service.CreateWallet(ctx, "Gökhan", "TRY")
@@ -196,7 +213,7 @@ func TestWalletService_Full_E2E_Scenario(t *testing.T) {
 	err = service.Deposit(ctx, depositKey, wallet.ID, wallet.OwnerID, uuid.NewString(), 10050)
 	require.NoError(t, err)
 
-	updated, err := repo.GetByID(ctx, wallet.ID)
+	updated, err := walletRepo.GetByID(ctx, wallet.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(10050), updated.Balance)
 
@@ -207,7 +224,7 @@ func TestWalletService_Full_E2E_Scenario(t *testing.T) {
 	err = service.Withdraw(ctx, withdrawKey, wallet.ID, wallet.OwnerID, uuid.NewString(), 3050)
 	require.NoError(t, err)
 
-	updated, err = repo.GetByID(ctx, wallet.ID)
+	updated, err = walletRepo.GetByID(ctx, wallet.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(7000), updated.Balance)
 
@@ -221,8 +238,9 @@ func TestWalletService_Full_E2E_Scenario(t *testing.T) {
 }
 
 func TestWalletService_Transfer_Success(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := service.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := service.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	// Wallet Create
@@ -238,16 +256,17 @@ func TestWalletService_Transfer_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Doğrulama
-	updatedW1, _ := repo.GetByID(ctx, w1.ID)
-	updatedW2, _ := repo.GetByID(ctx, w2.ID)
+	updatedW1, _ := walletRepo.GetByID(ctx, w1.ID)
+	updatedW2, _ := walletRepo.GetByID(ctx, w2.ID)
 
 	assert.Equal(t, int64(700), updatedW1.Balance)
 	assert.Equal(t, int64(800), updatedW2.Balance)
 }
 
 func TestWalletService_Transfer_InsufficientFunds(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := service.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := service.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	w1, _ := service.CreateWallet(ctx, "Gökhan", "TRY")
@@ -261,16 +280,17 @@ func TestWalletService_Transfer_InsufficientFunds(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrorInsufficientFunds)
 
 	// bakiye aynı kalmalı
-	updatedW1, _ := repo.GetByID(ctx, w1.ID)
-	updatedW2, _ := repo.GetByID(ctx, w2.ID)
+	updatedW1, _ := walletRepo.GetByID(ctx, w1.ID)
+	updatedW2, _ := walletRepo.GetByID(ctx, w2.ID)
 
 	assert.Equal(t, int64(100), updatedW1.Balance)
 	assert.Equal(t, int64(0), updatedW2.Balance)
 }
 
 func TestWalletService_GetBalance(t *testing.T) {
-	repo := repository.NewMemoryWalletRepository()
-	service := services.NewWalletService(repo)
+	walletRepo := repository.NewMemoryWalletRepository()
+	mockAudit := &mockAuditRepo{}
+	service := services.NewWalletService(walletRepo, mockAudit)
 	ctx := context.Background()
 
 	// 1. Senaryo: create wallet

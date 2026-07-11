@@ -145,6 +145,10 @@ func (r *MemoryWalletRepository) GetTransactionsByWalletID(ctx context.Context, 
 	return cloned, nil
 }
 
+func (r *MemoryWalletRepository) UpdateTransactionStatus(ctx context.Context, transactionID string, status domain.TransactionStatus) error {
+	return nil // Test için yeterli
+}
+
 // BeginTx, memory repository'de transaction yönetimi gerekmediği için mevcut "context" i olduğu gibi döner.
 func (r *MemoryWalletRepository) BeginTx(ctx context.Context) (context.Context, error) {
 	return ctx, nil

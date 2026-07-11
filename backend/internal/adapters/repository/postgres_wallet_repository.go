@@ -172,3 +172,10 @@ func (r *PostgreWalletRepository) Rollback(ctx context.Context) error {
 	}
 	return tx.Rollback()
 }
+
+func (r *PostgreWalletRepository) UpdateTransactionStatus(ctx context.Context, transactionID string, status domain.TransactionStatus) error {
+	query := `UPDATE transactions SET status = $1 WHERE id = $2`
+
+	_, err := r.getExecutor(ctx).ExecContext(ctx, query, status, transactionID)
+	return err
+}

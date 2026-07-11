@@ -13,12 +13,14 @@ import (
 
 // dependency inject
 type walletService struct {
-	repo ports.WalletRepository
+	walletRepo ports.WalletRepository
+	auditRepo  ports.AuditRepository // NEW
 }
 
-func NewWalletService(repo ports.WalletRepository) ports.WalletService {
+func NewWalletService(repo ports.WalletRepository, auditRepo ports.AuditRepository) ports.WalletService {
 	return &walletService{
-		repo: repo,
+		walletRepo: repo,
+		auditRepo:  auditRepo, // NEW
 	}
 }
 
@@ -31,7 +33,7 @@ func (s *walletService) CreateWallet(ctx context.Context, owner, currency string
 		Currency: currency,
 	}
 
-	if err := s.repo.Create(ctx, wallet); err != nil {
+	if err := s.walletRepo.Create(ctx, wallet); err != nil {
 		return nil, err
 	}
 
@@ -40,7 +42,7 @@ func (s *walletService) CreateWallet(ctx context.Context, owner, currency string
 
 func (s *walletService) GetWallet(ctx context.Context, userID, id string) (*domain.Wallet, error) {
 
-	wallet, err := s.repo.GetByID(ctx, id)
+	wallet, err := s.walletRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -55,36 +57,54 @@ func (s *walletService) GetWallet(ctx context.Context, userID, id string) (*doma
 
 func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, walletID string, userID string, transactionID string, amount int64) error {
 
-	txContext, err := s.repo.BeginTx(ctx)
+	txContext, err := s.walletRepo.BeginTx(ctx)
 	if err != nil {
 		return err
 	}
 
-	defer s.repo.Rollback(txContext)
+	// ! Hata durumunda işlemi FAILED olarak işaretleyip rollback işlemi yapmak.
+	defer func() {
+		if err != nil {
+			_ = s.walletRepo.UpdateTransactionStatus(txContext, transactionID, domain.StatusFailed)
+			_ = s.walletRepo.Rollback(txContext)
+		}
+	}()
 
 	if amount <= 0 {
 		return domain.ErrorInvalidAmount // Guard Clause
 	}
 
-	// ! 1. Idempotency Kontrolü
+	tn := &domain.Transaction{
+		ID:        transactionID,
+		WalletID:  walletID,
+		Amount:    amount,
+		Type:      domain.Deposit,
+		Status:    domain.StatusPending, // "Pending", başlangıç
+		CreatedAt: time.Now(),
+	}
+	if err = s.walletRepo.SaveTransaction(ctx, tn); err != nil {
+		return err
+	}
+
+	// 1. Idempotency Kontrolü
 	if idempotencyKey != "" {
 
-		// ! 1. Sorgulama (Check): Eğer "idempotencyKey" boş değilse, repository'den bu key ile daha önce kaydedilmiş bir kayıt olup olmadığını sorgula.
-		record, err := s.repo.GetIdempotencyRecord(ctx, idempotencyKey)
+		// Sorgulama (Check): Eğer "idempotencyKey" boş değilse, repository'den bu key ile daha önce kaydedilmiş bir kayıt olup olmadığını sorgula.
+		record, err := s.walletRepo.GetIdempotencyRecord(ctx, idempotencyKey)
 		if err != nil {
 			return err
 		}
 
-		// ! "duplicate request"
+		// "duplicate request"
 		if record != nil {
 			return nil
 		}
 	}
 
-	// ! 2. Optimistic Locking Retry Döngüsü
+	// 2. Optimistic Locking Retry Döngüsü
 	for {
 
-		wallet, err := s.repo.GetByID(ctx, walletID)
+		wallet, err := s.walletRepo.GetByID(ctx, walletID)
 		if err != nil {
 			return err
 		}
@@ -94,12 +114,12 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 			return domain.ErrorUnauthorized
 		}
 
-		// ! Cüzdan'a para yatır(deposit), hata varsa hatayı dön.
+		// Cüzdan'a para yatır(deposit), hata varsa hatayı dön.
 		if err := wallet.Deposit(amount); err != nil {
 			return err
 		}
 
-		err = s.repo.Update(ctx, wallet)
+		err = s.walletRepo.Update(ctx, wallet)
 		if err != nil {
 			if errors.Is(err, domain.ErrConcurrentModification) {
 				continue
@@ -108,7 +128,7 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 			return err
 		}
 
-		// ! Transaction Instance Create and Save
+		// Transaction Instance Create and Save
 		tn := &domain.Transaction{
 			ID:        transactionID,
 			WalletID:  walletID,
@@ -117,14 +137,20 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 			CreatedAt: time.Now(),
 		}
 
-		if err := s.repo.SaveTransaction(ctx, tn); err != nil {
+		if err := s.walletRepo.SaveTransaction(ctx, tn); err != nil {
 			return err
 		}
 
 		break
+
 	}
 
-	// ! 3. Başarılı olan işlemi "Idempotency Kaydı" olarak saklamak.
+	// ! İşlem biter, Status = "COMPLETED" olarak güncellenir.ç
+	if err = s.walletRepo.UpdateTransactionStatus(ctx, transactionID, domain.StatusCompleted); err != nil {
+		return err
+	}
+
+	// 3. Başarılı olan işlemi "Idempotency Kaydı" olarak saklamak.
 	if idempotencyKey != "" {
 		record := &domain.IdempotencyRecord{
 			Key:       idempotencyKey,
@@ -132,31 +158,49 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 			CreatedAt: time.Now(),
 		}
 
-		if err := s.repo.SaveIdempotencyRecord(ctx, record); err != nil {
+		if err := s.walletRepo.SaveIdempotencyRecord(ctx, record); err != nil {
 			return err
 		}
 	}
 
-	return s.repo.Commit(txContext)
+	return s.walletRepo.Commit(txContext)
 }
 
 func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, walletID string, userID string, transactionID string, amount int64) error {
+
+	// Transaction Start
+	txContext, err := s.walletRepo.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = s.walletRepo.UpdateTransactionStatus(ctx, transactionID, domain.StatusFailed)
+			_ = s.walletRepo.Rollback(txContext)
+		}
+	}()
 
 	if amount <= 0 {
 		return domain.ErrorInvalidAmount // Guard Clause
 	}
 
-	// Transaction Start
-	txContext, err := s.repo.BeginTx(ctx)
-	if err != nil {
+	tn := &domain.Transaction{
+		ID:        transactionID,
+		WalletID:  walletID,
+		Amount:    amount,
+		Type:      domain.Withdraw,
+		Status:    domain.StatusPending,
+		CreatedAt: time.Now(),
+	}
+
+	if err = s.walletRepo.SaveTransaction(txContext, tn); err != nil {
 		return err
 	}
 
-	defer s.repo.Rollback(txContext)
-
 	// Idempotency Kontrolü
 	if idempotencyKey != "" {
-		record, err := s.repo.GetIdempotencyRecord(txContext, idempotencyKey)
+		record, err := s.walletRepo.GetIdempotencyRecord(txContext, idempotencyKey)
 		if err != nil {
 			return err
 		}
@@ -168,7 +212,7 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 
 	// 2. Retry Döngüsü
 	for {
-		wallet, err := s.repo.GetByID(txContext, walletID)
+		wallet, err := s.walletRepo.GetByID(txContext, walletID)
 		if err != nil {
 			return err
 		}
@@ -183,7 +227,7 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 		}
 
 		// Update (Concurrency Check)
-		err = s.repo.Update(txContext, wallet)
+		err = s.walletRepo.Update(txContext, wallet)
 		if err != nil {
 			if errors.Is(err, domain.ErrConcurrentModification) {
 				continue
@@ -200,11 +244,15 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 			CreatedAt: time.Now(),
 		}
 
-		if err := s.repo.SaveTransaction(txContext, tn); err != nil {
+		if err := s.walletRepo.SaveTransaction(txContext, tn); err != nil {
 			return err
 		}
 
 		break
+	}
+
+	if err = s.walletRepo.UpdateTransactionStatus(ctx, transactionID, domain.StatusCompleted); err != nil {
+		return err
 	}
 
 	// Idempotency Kaydı (Success Durumunda)
@@ -215,18 +263,18 @@ func (s *walletService) Withdraw(ctx context.Context, idempotencyKey string, wal
 			CreatedAt: time.Now(),
 		}
 
-		if err := s.repo.SaveIdempotencyRecord(ctx, record); err != nil {
+		if err := s.walletRepo.SaveIdempotencyRecord(ctx, record); err != nil {
 			return err
 		}
 	}
 
 	// 3. Commit
-	return s.repo.Commit(txContext)
+	return s.walletRepo.Commit(txContext)
 }
 
 func (s *walletService) GetTransactions(ctx context.Context, walletID string) ([]*domain.Transaction, error) {
 
-	return s.repo.GetTransactionsByWalletID(ctx, walletID)
+	return s.walletRepo.GetTransactionsByWalletID(ctx, walletID)
 }
 
 func (s *walletService) Transfer(ctx context.Context, idempotencyKey, fromWalletID, toWalletID, ownerID string, amount int64) error {
@@ -242,18 +290,35 @@ func (s *walletService) Transfer(ctx context.Context, idempotencyKey, fromWallet
 
 	// Transaction Start
 	// NOT: BeginTx, transaction'ı ctx içerisine gömer (context-based propagation)
-	ctx, err := s.repo.BeginTx(ctx)
+	txContext, err := s.walletRepo.BeginTx(ctx)
 	if err != nil {
 		return err
 	}
 
-	// Transaction tamamlanmazsa "panic&hata" rollback'i dön. Database tutarlılığını sağlar.
-	defer s.repo.Rollback(ctx)
+	transactionID := uuid.NewString() // Transfer için yeni ID
+	defer func() {
+		if err != nil {
+			_ = s.walletRepo.UpdateTransactionStatus(txContext, transactionID, domain.StatusFailed)
+			_ = s.walletRepo.Rollback(txContext) // Transaction tamamlanmazsa "panic&hata" rollback'i dön. Database tutarlılığını sağlar.
+		}
+	}()
 
-	// * Business Logics
+	tn := &domain.Transaction{
+		ID:        transactionID,
+		WalletID:  fromWalletID,
+		Amount:    amount,
+		Type:      domain.Withdraw,
+		Status:    domain.StatusPending,
+		CreatedAt: time.Now(),
+	}
+	if err = s.walletRepo.SaveTransaction(txContext, tn); err != nil {
+		return err
+	}
+
+	// * BUSINESS LOGICS
 
 	// Gönderen(withdraw) wallet'ı çek
-	fromWallet, err := s.repo.GetByID(ctx, fromWalletID)
+	fromWallet, err := s.walletRepo.GetByID(txContext, fromWalletID)
 	if err != nil {
 		return err
 	}
@@ -264,7 +329,7 @@ func (s *walletService) Transfer(ctx context.Context, idempotencyKey, fromWallet
 	}
 
 	// Alıcı(deposit) wallet'ı çek.
-	toWallet, err := s.repo.GetByID(ctx, toWalletID)
+	toWallet, err := s.walletRepo.GetByID(txContext, toWalletID)
 	if err != nil {
 		return err
 	}
@@ -278,24 +343,45 @@ func (s *walletService) Transfer(ctx context.Context, idempotencyKey, fromWallet
 
 	// withdraw(gönderen)
 	fromWallet.Balance -= amount
-	if err := s.repo.Update(ctx, fromWallet); err != nil {
+	if err := s.walletRepo.Update(txContext, fromWallet); err != nil {
 		return err
 	}
 
 	// deposit(alıcı)
 	toWallet.Balance += amount
-	if err := s.repo.Update(ctx, toWallet); err != nil {
+	if err := s.walletRepo.Update(txContext, toWallet); err != nil {
 		return err
 	}
 
-	// commit (işlemlerin başarılı olması durumunda.)
-	return s.repo.Commit(ctx)
+	// Başarılı: Statüyü COMPLETED olarak güncelle
+	if err = s.walletRepo.UpdateTransactionStatus(txContext, transactionID, domain.StatusCompleted); err != nil {
+		return err
+	}
+
+	// COMMIT (İşlemlerin başarılı olması durumunda.)
+	err = s.walletRepo.Commit(txContext)
+	if err != nil {
+		return err
+	}
+
+	// ! AUDIT LOGLAMA
+	s.auditRepo.Save(ctx, &domain.AuditLog{
+		ID:         uuid.NewString(),
+		EntityID:   fromWalletID,
+		EntityType: "WALLET",
+		Operation:  "TRANSFER",
+		UserID:     ownerID,
+		Changes:    []byte(fmt.Sprintf("Transferred %d from %s to %s", amount, fromWalletID, toWalletID)),
+		CreatedAt:  time.Now(),
+	})
+
+	return nil
 }
 
 // GetByID ile wallet'a ait balance(bakiye) bilgisini döner.
 func (s *walletService) GetBalance(ctx context.Context, walletID string) (int64, error) {
 
-	wallet, err := s.repo.GetByID(ctx, walletID)
+	wallet, err := s.walletRepo.GetByID(ctx, walletID)
 
 	if err != nil {
 		return 0, err

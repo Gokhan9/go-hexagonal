@@ -8,6 +8,6 @@ type AuditLog struct {
 	EntityType string
 	Operation  string
 	UserID     string
-	Changes    []byte
+	Changes    []byte // JSON verisi
 	CreatedAt  time.Time
 }

@@ -8,3 +8,6 @@ import (
 type AuditRepository interface {
 	Save(ctx context.Context, log *domain.AuditLog) error
 }
+
+type AuditLogService interface {
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"go-hexagonal/internal/adapters/handler"
 	"go-hexagonal/internal/adapters/handler/middleware"
 	"go-hexagonal/internal/adapters/limiter"
@@ -8,47 +9,80 @@ import (
 	services "go-hexagonal/internal/core/service"
 	"log"
 	"net/http"
+	"os"
 
 	_ "go-hexagonal/docs"
+
+	_ "github.com/lib/pq" // Burada _ (underscore) olması ZORUNLUDUR! Go bu paketi sadece import eder ama sürücü kayıt (register) işlemini yapmaz. _ işareti, "paketin init() fonksiyonunu çalıştır ama başka fonksiyonlarını doğrudan kullanma" demektir ki sürücüler için gereken budur.
 )
 
 func main() {
 
-	// 1. Repository (Driven Adapter - Altyapı) başlatma işlemi
-	repo := repository.NewMemoryWalletRepository()
+	// 1. Database Connection Kurulumu
+	connStr := os.Getenv("DB_URL") // DB_URL ortam değişkenini oku ("Docker-compose.yml" içinde ki "DB_URL" değişkenini kullanıyoruz.)
 
-	// 2. Service (Core İş Mantığı) başlatma işlemi ve "repo" inject
-	walletService := services.NewWalletService(repo)
+	if connStr == "" {
+		connStr = "host=localhost port=5432 user=postgres password=postgres dbname=wallet_db sslmode=disable"
+		//log.Println("DB_URL bulunamadı, default ayarlar kullanılıyor.")
+	}
 
-	// 3. Handler (Driving Adapter - API Katmanı) başlatma işlemi ve "service" inject
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatalf("Veritabanı bağlantısı kurulamadı: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		log.Fatalf("Veritabanına ulaşılamadı: %v", err)
+	}
+
+	// 2. Repository Başlatma (Driven Adapter - Altyapı) başlatma işlemi
+	walletRepo := repository.NewPostgreWalletRepository(db)
+	auditRepo := repository.NewPostgreAuditRepository(db)
+
+	// 3. Service (Core İş Mantığı) başlatma işlemi ve "repo" inject
+	walletService := services.NewWalletService(walletRepo, auditRepo)
+
+	// 4. Handler (Driving Adapter - API Katmanı) başlatma işlemi ve "service" inject
 	walletHandler := handler.NewWalletHandler(walletService)
 
-	// 4. Rate Limiter Start (SANİYEDE 2 İSTEK, 5 BURST KAPASİTE)
+	// 5. Rate Limiter Start (SANİYEDE 2 İSTEK, 5 BURST KAPASİTE) - 6. Rate Limiter Create
 	ratelimiter := limiter.NewInMemoryRateLimiter(2, 5)
-
-	// 5. Rate Limiter Create
 	rateLimiterMiddleware := middleware.RateLimiterMiddleware(ratelimiter)
 
-	// 6. HTTP ServeMux
+	// 7. HTTP ServeMux
 	mux := http.NewServeMux()
 
+	// 8. Statik Swagger Docs
 	fs := http.FileServer(http.Dir("./docs")) // statik dosyaları bir klasör listesi olarak listelemek.
 
-	// 7. API Route
+	// 9. API Route
 	//mux.HandleFunc("POST /wallets", walletHandler.Create)
-	mux.HandleFunc("GET /wallets/{id}", walletHandler.GetByID)
-	mux.HandleFunc("POST /wallets/{id}/deposit", walletHandler.Deposit)
-	mux.HandleFunc("POST /wallets/{id}/withdraw", walletHandler.Withdraw)
-	mux.HandleFunc("GET /wallets/{id}/transactions", walletHandler.GetTransactions)
-	mux.HandleFunc("GET /wallets/{id}/balance", walletHandler.GetBalance)
-	mux.HandleFunc("POST /wallets/{id}/transfer", walletHandler.Transfer)
-	//mux.HandleFunc("GET /swagger/*", httpSwagger.WrapHandler)
+	//mux.HandleFunc("GET /wallets/{id}", walletHandler.GetByID)
+	//mux.HandleFunc("POST /wallets/{id}/deposit", walletHandler.Deposit)
+	//mux.HandleFunc("POST /wallets/{id}/withdraw", walletHandler.Withdraw)
+	//mux.HandleFunc("GET /wallets/{id}/transactions", walletHandler.GetTransactions)
+	//mux.HandleFunc("GET /wallets/{id}/balance", walletHandler.GetBalance)
+	//mux.HandleFunc("POST /wallets/{id}/transfer", walletHandler.Transfer)
 
-	mux.Handle("POST /wallets", rateLimiterMiddleware(http.HandlerFunc(walletHandler.Create)))
-	mux.Handle("GET /wallets/{id}", rateLimiterMiddleware(http.HandlerFunc(walletHandler.GetByID)))
-	mux.Handle("GET /swagger/", http.StripPrefix("/swagger/", fs)) //statik dosyaları bir klasör listesi olarak listelemek.
+	mux.Handle("POST /wallets",
+		rateLimiterMiddleware(http.HandlerFunc(walletHandler.Create)))
+	mux.Handle("GET /wallets/{id}",
+		rateLimiterMiddleware(http.HandlerFunc(walletHandler.GetByID)))
+	mux.Handle("POST /wallets/{id}/deposit",
+		rateLimiterMiddleware(http.HandlerFunc(walletHandler.Deposit)))
+	mux.Handle("POST /wallets/{id}/withdraw",
+		rateLimiterMiddleware(http.HandlerFunc(walletHandler.Withdraw)))
+	mux.Handle("GET /wallets/{id}/transactions",
+		rateLimiterMiddleware(http.HandlerFunc(walletHandler.GetTransactions)))
+	mux.Handle("GET /wallets/{id}/balance",
+		rateLimiterMiddleware(http.HandlerFunc(walletHandler.GetBalance)))
+	mux.Handle("POST /wallets/{id}/transfer",
+		rateLimiterMiddleware(http.HandlerFunc(walletHandler.Transfer)))
+	mux.Handle("GET /swagger/",
+		http.StripPrefix("/swagger/", fs)) //statik dosyaları bir klasör listesi olarak listelemek.
 
-	// 8. HTTP Server Starting
+	// 10. HTTP Server Starting
 	log.Println("Sunucu:8080 Portunda çalışıyor......")
 	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("Sunucu başlatılamadı: %v", err)
