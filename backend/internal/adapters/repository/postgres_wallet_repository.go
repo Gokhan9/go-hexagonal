@@ -119,7 +119,7 @@ func (r *PostgreWalletRepository) SaveTransaction(ctx context.Context, tn *domai
 }
 
 func (r *PostgreWalletRepository) GetTransactionsByWalletID(ctx context.Context, walletID string) ([]*domain.Transaction, error) {
-	query := `SELECT id, wallet_id, amount, type, created_at FROM transactions WHERE wallet_id = $1`
+	query := `SELECT id, wallet_id, amount, type, status, created_at FROM transactions WHERE wallet_id = $1`
 
 	rows, err := r.getExecutor(ctx).QueryContext(ctx, query, walletID)
 	if err != nil {
@@ -130,7 +130,7 @@ func (r *PostgreWalletRepository) GetTransactionsByWalletID(ctx context.Context,
 	var transactions []*domain.Transaction
 	for rows.Next() {
 		var tn domain.Transaction
-		if err := rows.Scan(&tn.ID, &tn.WalletID, &tn.Amount, &tn.Type, &tn.CreatedAt); err != nil {
+		if err := rows.Scan(&tn.ID, &tn.WalletID, &tn.Amount, &tn.Type, &tn.Status, &tn.CreatedAt); err != nil {
 			return nil, err
 		}
 		transactions = append(transactions, &tn)
