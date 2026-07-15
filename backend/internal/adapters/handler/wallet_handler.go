@@ -7,9 +7,11 @@ import (
 	"go-hexagonal/internal/api/dto"
 	"go-hexagonal/internal/core/domain"
 	"go-hexagonal/internal/core/ports"
+	"log"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 /*
@@ -116,12 +118,18 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ! idempotencyKey
-	user, err := middleware.GetUsernameFromContext(r.Context())
-	if err != nil {
-		h.WriteError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-	err = h.service.Deposit(r.Context(), idempotencyKey, id, user.UserID, req.TransactionID, req.ToCents())
+	//user, err := middleware.GetUsernameFromContext(r.Context())
+	//if err != nil {
+	//	h.WriteError(w, http.StatusUnauthorized, err.Error())
+	//	return
+	// }
+
+	userID := "Gökhan"
+	transactionID := uuid.NewString()
+
+	log.Println("Generated transaction:", transactionID)
+
+	err := h.service.Deposit(r.Context(), idempotencyKey, id, userID, transactionID, req.ToCents())
 	if err != nil {
 		h.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -157,12 +165,16 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ! idempotencyKey
-	user, err := middleware.GetUsernameFromContext(r.Context())
-	if err != nil {
-		h.WriteError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-	err = h.service.Withdraw(r.Context(), idempotencyKey, id, user.UserID, req.TransactionID, req.ToCents())
+	//user, err := middleware.GetUsernameFromContext(r.Context())
+	//if err != nil {
+	//	h.WriteError(w, http.StatusUnauthorized, err.Error())
+	//	return
+	//}
+
+	userID := "Gökhan"
+	transactionID := uuid.NewString()
+	log.Println("Generated transaction:", transactionID)
+	err := h.service.Withdraw(r.Context(), idempotencyKey, id, userID, transactionID, req.ToCents())
 	if err != nil {
 		h.WriteError(w, http.StatusBadRequest, err.Error())
 		return
