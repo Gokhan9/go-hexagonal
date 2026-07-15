@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"go-hexagonal/internal/core/domain"
+	"log"
 )
 
 type PostgreWalletRepository struct {
@@ -112,9 +113,20 @@ func (r *PostgreWalletRepository) SaveIdempotencyRecord(ctx context.Context, rec
 }
 
 func (r *PostgreWalletRepository) SaveTransaction(ctx context.Context, tn *domain.Transaction) error {
-	query := `INSERT INTO transactions (id, wallet_id, amount, type, status, created_at) VALUES ($1, $2, $3, $4, $5, $6)`
+
+	log.Printf("SaveTransaction ID=%s", tn.ID)
+
+	query := `INSERT INTO transactions 
+	(id, wallet_id, amount, type, status, created_at) 
+	VALUES ($1, $2, $3, $4, $5, $6)`
 
 	_, err := r.getExecutor(ctx).ExecContext(ctx, query, tn.ID, tn.WalletID, tn.Amount, tn.Type, tn.Status, tn.CreatedAt)
+
+	if err != nil {
+		log.Printf("INSERT FAILED: %v", err)
+	} else {
+		log.Println("INSERT SUCCESS")
+	}
 	return err
 }
 
@@ -174,8 +186,14 @@ func (r *PostgreWalletRepository) Rollback(ctx context.Context) error {
 }
 
 func (r *PostgreWalletRepository) UpdateTransactionStatus(ctx context.Context, transactionID string, status domain.TransactionStatus) error {
+	log.Printf("UPDATE STATUS id=%s status=%s", transactionID, status)
+
 	query := `UPDATE transactions SET status = $1 WHERE id = $2`
 
 	_, err := r.getExecutor(ctx).ExecContext(ctx, query, status, transactionID)
+
+	if err != nil {
+		log.Printf("UPDATE FAILED: %v", err)
+	}
 	return err
 }
