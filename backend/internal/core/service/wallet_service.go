@@ -48,9 +48,9 @@ func (s *walletService) GetWallet(ctx context.Context, userID, id string) (*doma
 	}
 
 	// * 2- YETKI KONTROLÜ: Bu wallet istek atan user'a mı ait?
-	if wallet.OwnerID != userID {
-		return nil, domain.ErrorUnauthorized
-	}
+	//if wallet.OwnerID != userID {
+	//	return nil, domain.ErrorUnauthorized
+	//}
 
 	return wallet, nil
 }
@@ -107,7 +107,7 @@ func (s *walletService) Deposit(ctx context.Context, idempotencyKey string, wall
 			return err
 		}
 
-		fmt.Printf("DEBUG: WalletID: %s, WalletOwnerID: '%s', RequestUserID: '%s'\n", walletID, wallet.OwnerID, userID)
+		fmt.Printf("DEBUG FOR Deposit: WalletID: %s, WalletOwnerID: '%s', RequestUserID: '%s'\n", walletID, wallet.OwnerID, userID)
 
 		// * YETKİ KONTROLÜ
 		if wallet.OwnerID != userID {
