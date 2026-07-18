@@ -358,3 +358,42 @@ func (s *walletService) GetBalance(ctx context.Context, walletID string) (int64,
 
 	return wallet.Balance, nil
 }
+
+func (s *walletService) UpdateWalletStatus(ctx context.Context, walletID string, userID string) error {
+
+	// Optimistic Lock Retry Döngüsü
+	for {
+		// 1. Wallet'ı çek
+		wallet, err := s.walletRepo.GetByID(ctx, walletID)
+		if err != nil {
+			return err
+		}
+
+		// 2. wallet için yetki kontrolü
+		if wallet.OwnerID != userID {
+			return domain.ErrorUnauthorized
+		}
+
+		// 3. wallet için logicler
+		if wallet.Status == domain.StatusClosed {
+			return domain.ErrorWalletAlreadyClosed
+		}
+		if wallet.Balance != 0 {
+			return domain.ErrorWalletNotEmptied
+		}
+
+		// 4. Optimistic lock ile durumu güncelle
+		err = s.walletRepo.UpdateWalletStatus(ctx, walletID, string(domain.StatusClosed), wallet.Version)
+		if err != nil {
+			// Concurrency hatası alsak dahi döngüye devam ederiz.
+			if errors.Is(err, domain.ErrConcurrentModification) {
+				continue
+			}
+
+			return err
+		}
+		// Success
+		break
+	}
+	return nil
+}
