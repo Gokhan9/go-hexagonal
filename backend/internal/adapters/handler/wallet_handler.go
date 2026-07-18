@@ -83,7 +83,15 @@ func (h *WalletHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	wallet, err := h.service.GetWallet(r.Context(), user.UserID, id)
 	if err != nil {
-		h.WriteError(w, http.StatusNotFound, "No wallet information was found for this ID.") // 404 (İstenen kayıt/sayfa/api bulunamadığı durumlar.)
+
+		log.Printf("ERROR: GetWallet FAILED: %v", err)
+
+		if errors.Is(err, domain.ErrorWalletNotFound) {
+			h.WriteError(w, http.StatusNotFound, "Wallet not found with this ID..") // 404 (İstenen kayıt/sayfa/api bulunamadığı durumlar.)
+			return
+		}
+
+		h.WriteError(w, http.StatusInternalServerError, "Internal Server Error: "+err.Error())
 		return
 	}
 
@@ -173,6 +181,7 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 
 	userID := "Gökhan"
 	transactionID := uuid.NewString()
+
 	log.Println("Generated transaction:", transactionID)
 	err := h.service.Withdraw(r.Context(), idempotencyKey, id, userID, transactionID, req.ToCents())
 	if err != nil {
@@ -189,7 +198,7 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 // @Param id path string true "Cüzdan ID"
 // @Success 200 {array} domain.Transaction
 // @Router /wallets/{id}/transactions [get]
-func (h *WalletHandler) GetTransactions(w http.ResponseWriter, r *http.Request) {
+func (h *WalletHandler) GetTransactionsByID(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id")
 
@@ -244,7 +253,7 @@ func (h *WalletHandler) Transfer(w http.ResponseWriter, r *http.Request) {
 // @Param id path string true "Cüzdan ID"
 // @Success 200 {object} map[string]int64
 // @Router /wallets/{id}/balance [get]
-func (h *WalletHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
+func (h *WalletHandler) GetBalanceByID(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id")
 
