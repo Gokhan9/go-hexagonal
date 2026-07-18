@@ -40,4 +40,5 @@ type WalletRepository interface {
 	Rollback(ctx context.Context) error
 
 	UpdateTransactionStatus(ctx context.Context, transactionID string, status domain.TransactionStatus) error // PENDING, COMPLETED OR FAILED
+	UpdateWalletStatus(ctx context.Context, id, status string, version int) error
 }
