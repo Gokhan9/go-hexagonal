@@ -4,14 +4,21 @@ import (
 	"time"
 )
 
+type WalletStatus string
+
+const (
+	StatusActive WalletStatus = "ACTIVE"
+	StatusClosed WalletStatus = "CLOSED"
+)
+
 type Wallet struct {
 	ID        string
-	OwnerID   string // UPTADE: Artık UserID'ye bağlı OwnerID
+	OwnerID   string // UPDATE: Artık UserID'ye bağlı OwnerID
 	Balance   int64  // Bakiye
 	Currency  string // Para Birimi
 	CreatedAt time.Time
-
-	Version int
+	Status    WalletStatus // Wallet - ACTIVE & CLOSED
+	Version   int
 }
 
 // bakiyeye ekleme yapar
