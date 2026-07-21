@@ -41,4 +41,5 @@ type WalletRepository interface {
 
 	UpdateTransactionStatus(ctx context.Context, transactionID string, status domain.TransactionStatus) error // PENDING, COMPLETED OR FAILED
 	UpdateWalletStatus(ctx context.Context, id, status string, version int) error
+	CloseWallet(ctx context.Context, walletID string, userID string) error
 }
