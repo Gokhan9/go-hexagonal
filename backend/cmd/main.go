@@ -13,6 +13,8 @@ import (
 
 	_ "go-hexagonal/docs"
 
+	httpSwagger "github.com/swaggo/http-swagger"
+
 	_ "github.com/lib/pq" // Burada _ (underscore) olması ZORUNLUDUR! Go bu paketi sadece import eder ama sürücü kayıt (register) işlemini yapmaz. _ işareti, "paketin init() fonksiyonunu çalıştır ama başka fonksiyonlarını doğrudan kullanma" demektir ki sürücüler için gereken budur.
 )
 
@@ -54,7 +56,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// 8. Statik Swagger Docs
-	fs := http.FileServer(http.Dir("./docs")) // statik dosyaları bir klasör listesi olarak listelemek.
+	//fs := http.FileServer(http.Dir("./docs")) // statik dosyaları bir klasör listesi olarak listelemek.
 
 	// 9. API Route
 	//mux.HandleFunc("POST /wallets", walletHandler.Create)
@@ -74,13 +76,16 @@ func main() {
 	mux.Handle("POST /wallets/{id}/withdraw",
 		rateLimiterMiddleware(http.HandlerFunc(walletHandler.Withdraw)))
 	mux.Handle("GET /wallets/{id}/transactions",
-		rateLimiterMiddleware(http.HandlerFunc(walletHandler.GetTransactions)))
+		rateLimiterMiddleware(http.HandlerFunc(walletHandler.GetTransactionsByID)))
 	mux.Handle("GET /wallets/{id}/balance",
-		rateLimiterMiddleware(http.HandlerFunc(walletHandler.GetBalance)))
+		rateLimiterMiddleware(http.HandlerFunc(walletHandler.GetBalanceByID)))
 	mux.Handle("POST /wallets/{id}/transfer",
 		rateLimiterMiddleware(http.HandlerFunc(walletHandler.Transfer)))
-	mux.Handle("GET /swagger/",
-		http.StripPrefix("/swagger/", fs)) //statik dosyaları bir klasör listesi olarak listelemek.
+	mux.Handle("POST /wallets/{id}/close",
+		rateLimiterMiddleware(http.HandlerFunc(walletHandler.CloseWalletByID)))
+	mux.Handle("GET /swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8080/swagger/swagger.json"),
+	))
 
 	// 10. HTTP Server Starting
 	log.Println("Sunucu:8080 Portunda çalışıyor......")

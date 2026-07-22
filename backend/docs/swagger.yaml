@@ -10,11 +10,23 @@ definitions:
         type: string
       id:
         type: string
+      status:
+        $ref: '#/definitions/domain.TransactionStatus'
       type:
         $ref: '#/definitions/domain.TransactionType'
       walletID:
         type: string
     type: object
+  domain.TransactionStatus:
+    enum:
+    - PENDING
+    - COMPLETED
+    - FAILED
+    type: string
+    x-enum-varnames:
+    - StatusPending
+    - StatusCompleted
+    - StatusFailed
   domain.TransactionType:
     enum:
     - DEPOSIT
@@ -37,11 +49,23 @@ definitions:
       id:
         type: string
       ownerID:
-        description: 'UPTADE: Artık UserID''ye bağlı OwnerID'
+        description: 'UPDATE: Artık UserID''ye bağlı OwnerID'
         type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/domain.WalletStatus'
+        description: Wallet - ACTIVE & CLOSED
       version:
         type: integer
     type: object
+  domain.WalletStatus:
+    enum:
+    - ACTIVE
+    - CLOSED
+    type: string
+    x-enum-varnames:
+    - StatusActive
+    - StatusClosed
   dto.CreateWalletRequest:
     properties:
       currency:
@@ -102,6 +126,30 @@ paths:
       summary: Cüzdan Oluştur
       tags:
       - Wallets
+  /wallets/{id}:
+    get:
+      parameters:
+      - description: Cüzdan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Wallet'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cüzdan Detayını Getir
+      tags:
+      - Wallets
   /wallets/{id}/balance:
     get:
       parameters:
@@ -121,6 +169,76 @@ paths:
               type: integer
             type: object
       summary: Bakiye sorgula
+      tags:
+      - Wallets
+  /wallets/{id}/close:
+    post:
+      parameters:
+      - description: CüzdanID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Başarılı mesajı
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Hatalı istek
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Yetkisiz Erişim
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Sunucu hatası
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cüzdanı kapat
+      tags:
+      - Wallets
+  /wallets/{id}/deposit:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cüzdan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Mükerrer işlem koruması
+        in: header
+        name: X-Idempotency-Key
+        type: string
+      - description: Yatırma detayları
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Para yatır
       tags:
       - Wallets
   /wallets/{id}/transactions:
@@ -205,62 +323,6 @@ paths:
               type: string
             type: object
       summary: Para çek
-      tags:
-      - Wallets
-  /wallets{id}:
-    get:
-      parameters:
-      - description: Cüzdan ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/domain.Wallet'
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Cüzdan Detayını Getir
-      tags:
-      - Wallets
-  /wallets{id}/deposit:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Cüzdan ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Mükerrer işlem koruması
-        in: header
-        name: X-Idempotency-Key
-        type: string
-      - description: Yatırma detayları
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/dto.TransactionRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Para yatır
       tags:
       - Wallets
 swagger: "2.0"

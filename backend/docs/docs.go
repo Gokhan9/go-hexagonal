@@ -51,6 +51,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/wallets/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wallets"
+                ],
+                "summary": "Cüzdan Detayını Getir",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cüzdan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Wallet"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/wallets/{id}/balance": {
             "get": {
                 "produces": [
@@ -77,6 +114,113 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "integer",
                                 "format": "int64"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/wallets/{id}/close": {
+            "post": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wallets"
+                ],
+                "summary": "Cüzdanı kapat",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CüzdanID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Başarılı mesajı",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Hatalı istek",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Yetkisiz Erişim",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Sunucu hatası",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/wallets/{id}/deposit": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wallets"
+                ],
+                "summary": "Para yatır",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cüzdan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mükerrer işlem koruması",
+                        "name": "X-Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Yatırma detayları",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.TransactionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
                             }
                         }
                     }
@@ -211,92 +355,6 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/wallets{id}": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wallets"
-                ],
-                "summary": "Cüzdan Detayını Getir",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Cüzdan ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/domain.Wallet"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/wallets{id}/deposit": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wallets"
-                ],
-                "summary": "Para yatır",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Cüzdan ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Mükerrer işlem koruması",
-                        "name": "X-Idempotency-Key",
-                        "in": "header"
-                    },
-                    {
-                        "description": "Yatırma detayları",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.TransactionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
@@ -314,6 +372,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "status": {
+                    "$ref": "#/definitions/domain.TransactionStatus"
+                },
                 "type": {
                     "$ref": "#/definitions/domain.TransactionType"
                 },
@@ -321,6 +382,19 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "domain.TransactionStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "COMPLETED",
+                "FAILED"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusCompleted",
+                "StatusFailed"
+            ]
         },
         "domain.TransactionType": {
             "type": "string",
@@ -352,13 +426,32 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ownerID": {
-                    "description": "UPTADE: Artık UserID'ye bağlı OwnerID",
+                    "description": "UPDATE: Artık UserID'ye bağlı OwnerID",
                     "type": "string"
+                },
+                "status": {
+                    "description": "Wallet - ACTIVE \u0026 CLOSED",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.WalletStatus"
+                        }
+                    ]
                 },
                 "version": {
                     "type": "integer"
                 }
             }
+        },
+        "domain.WalletStatus": {
+            "type": "string",
+            "enum": [
+                "ACTIVE",
+                "CLOSED"
+            ],
+            "x-enum-varnames": [
+                "StatusActive",
+                "StatusClosed"
+            ]
         },
         "dto.CreateWalletRequest": {
             "type": "object",
