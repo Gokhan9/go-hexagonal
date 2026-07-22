@@ -69,7 +69,7 @@ func (h *WalletHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Param id path string true "Cüzdan ID"
 // @Success 200 {object} domain.Wallet
 // @Failure 404 {object} map[string]string
-// @Router /wallets{id} [get]
+// @Router /wallets/{id} [get]
 func (h *WalletHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id") // * "Path" parametre okuma.
@@ -106,7 +106,7 @@ func (h *WalletHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 // @Param X-Idempotency-Key header string false "Mükerrer işlem koruması"
 // @Param body body dto.TransactionRequest true "Yatırma detayları"
 // @Success 200 {object} map[string]string
-// @Router /wallets{id}/deposit [post]
+// @Router /wallets/{id}/deposit [post]
 func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id")
@@ -271,6 +271,42 @@ func (h *WalletHandler) GetBalanceByID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]int64{"balance": balance})
+}
+
+// @Summary Cüzdanı kapat
+// @Tags Wallets
+// @Produce json
+// @Param id path string true "CüzdanID"
+// @Success 200 {object} map[string]string "Başarılı mesajı"
+// @Failure 400 {object} map[string]string "Hatalı istek"
+// @Failure 401 {object} map[string]string "Yetkisiz Erişim"
+// @Failure 500 {object} map[string]string "Sunucu hatası"
+// @Router /wallets/{id}/close [post]
+func (h *WalletHandler) CloseWalletByID(w http.ResponseWriter, r *http.Request) {
+
+	id := r.PathValue("id")
+
+	// Auth middleware gelene kadar geçici olarak hardcoded bırakıyoruz
+	userID := "Gökhan"
+
+	err := h.service.CloseWallet(r.Context(), id, userID)
+	if err != nil {
+
+		if errors.Is(err, domain.ErrorUnauthorized) {
+			h.WriteError(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+
+		if errors.Is(err, domain.ErrorWalletAlreadyClosed) || errors.Is(err, domain.ErrorWalletNotEmptied) {
+			h.WriteError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		h.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.WriteJSON(w, http.StatusOK, map[string]string{"message": "wallet closed successfully"})
 }
 
 // Yardımcı JSON Metodları.
