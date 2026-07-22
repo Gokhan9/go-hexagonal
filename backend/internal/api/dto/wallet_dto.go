@@ -18,6 +18,7 @@ type WalletResponse struct {
 	Balance   float64   `json:"balance"` // UI için 10.50 olarak gösteriyoruz
 	Currency  string    `json:"currency"`
 	CreatedAt time.Time `json:"created_at"`
+	Status    string    `json:"status"`
 }
 
 // ?DOMAIN MODELİNİ DTO'YA ÇEVİRMEK
@@ -28,6 +29,7 @@ func ToDomainResponse(w *domain.Wallet) WalletResponse {
 		Balance:   float64(w.Balance) / 100, // Kuruşu TL'ye çevirip dönüyoruz
 		Currency:  w.Currency,
 		CreatedAt: w.CreatedAt,
+		Status:    string(w.Status),
 	}
 }
 
