@@ -11,14 +11,12 @@ import (
 type WalletService interface {
 	CreateWallet(ctx context.Context, owner, currency string) (*domain.Wallet, error)
 	GetWallet(ctx context.Context, userID, id string) (*domain.Wallet, error)
-
-	// ! Adım 1: "ports.WalletService" interface'indeki "Deposit" ve "Withdraw" metod imzalarını güncelleyeceğiz ("idempotencyKey" parametresini ekleyeceğiz).
-	// ! "idempotencyKey" parametreleri  YENİ EKLENDİ.
 	Deposit(ctx context.Context, idempotencyKey string, walletID string, userID string, TransactionID string, amount int64) error
 	Withdraw(ctx context.Context, idempotencyKey string, walletID string, userID string, TransactionID string, amount int64) error
 	GetTransactions(ctx context.Context, walletID string) ([]*domain.Transaction, error)
 	Transfer(ctx context.Context, idempotencyKey string, fromWalletID string, toWalletID string, ownerID string, amount int64) error
 	GetBalance(ctx context.Context, walletID string) (int64, error)
+	CloseWallet(ctx context.Context, walletID string, userID string) error
 }
 
 // ? WalletRepository - Driven Port - Secondary Port (İkincil)
@@ -40,6 +38,5 @@ type WalletRepository interface {
 	Rollback(ctx context.Context) error
 
 	UpdateTransactionStatus(ctx context.Context, transactionID string, status domain.TransactionStatus) error // PENDING, COMPLETED OR FAILED
-	UpdateWalletStatus(ctx context.Context, id, status string, version int) error
-	CloseWallet(ctx context.Context, walletID string, userID string) error
+	UpdateWalletStatus(ctx context.Context, id string, status domain.WalletStatus, version int) error
 }

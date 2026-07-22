@@ -324,7 +324,7 @@ func (r *PostgreWalletRepository) UpdateTransactionStatus(ctx context.Context, t
 2.Context'te aktif bir transaction varsa UPDATE işlemini transaction üzerinden, yoksa normal veritabanı bağlantısı üzerinden gerçekleştirir.
 3.Version uyuşmazsa eşzamanlı güncelleme olduğu kabul edilir ve domain.ErrConcurrentModification hatası döndürülür.
 */
-func (r *PostgreWalletRepository) UpdateStatus(ctx context.Context, id string, status domain.WalletStatus, currentVersion int) error {
+func (r *PostgreWalletRepository) UpdateWalletStatus(ctx context.Context, id string, status domain.WalletStatus, version int) error {
 
 	// 1.
 	// Optimistic Locking: WHERE version = $3 ile işlem anındaki versiyonu kontrol ediyoruz. "version = version + 1:" Veritabanı seviyesinde atomik artış sağlar.
@@ -333,12 +333,12 @@ func (r *PostgreWalletRepository) UpdateStatus(ctx context.Context, id string, s
 	query := `UPDATE wallets SET status = $1, version = version + 1 WHERE id = $2 AND version = $3`
 
 	// 2.
-	result, err := r.getExecutor(ctx).ExecContext(
+	result, err := r.db.ExecContext(
 		ctx,
 		query,
 		status,
 		id,
-		currentVersion,
+		version,
 	)
 
 	if err != nil {
